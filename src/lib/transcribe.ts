@@ -7,13 +7,15 @@
 
 import OpenAI from "openai";
 
-const baseURL =
-  process.env.TRANSCRIBE_API_BASE_URL ?? "https://api.openai.com/v1";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY ?? "placeholder",
-  baseURL,
-});
+function getOpenAIClient() {
+  const baseURL =
+    process.env.TRANSCRIBE_API_BASE_URL ?? "https://api.openai.com/v1";
+  const apiKey = process.env.OPENAI_API_KEY || "dummy-key";
+  return new OpenAI({
+    apiKey,
+    baseURL,
+  });
+}
 
 export interface Segment {
   start: number;
@@ -51,6 +53,7 @@ export async function transcribeBuffer(
       params.language = language.toLowerCase();
     }
 
+    const client = getOpenAIClient();
     const response = await client.audio.transcriptions.create(params);
 
     const raw = response as unknown as {

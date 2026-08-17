@@ -18,6 +18,10 @@ async function getTranscriber(onProgress?: (msg: string) => void) {
     onProgress?.("Loading 100% Local Whisper AI model (cached in browser)...");
     const { pipeline, env } = await import("@xenova/transformers");
     env.allowLocalModels = false;
+    env.useBrowserCache = true;
+    if (env.backends?.onnx?.wasm) {
+      env.backends.onnx.wasm.proxy = false;
+    }
 
     // Use multilingual Whisper model supporting 99+ languages locally
     transcriberPromise = pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
