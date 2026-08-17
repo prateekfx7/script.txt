@@ -9,16 +9,29 @@ interface Subscriber {
   plan: string;
   status: string;
   amount: number;
+  utr?: string | null;
   renewalDate: string | null;
   activatedAt: string | null;
+}
+
+interface PendingSubmission {
+  id: string;
+  email: string;
+  plan: string;
+  status: string;
+  amount: number;
+  utr: string;
+  submittedAt: string | null;
 }
 
 export default function AdminSubscriptionsPage() {
   const { session } = useAuth();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [copiedUtr, setCopiedUtr] = useState<string | null>(null);
 
   const token = session?.access_token ?? "";
 
@@ -27,13 +40,19 @@ export default function AdminSubscriptionsPage() {
     setLoading(true);
     fetch("/api/admin/subscriptions", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => { setSubscribers(d.subscribers ?? []); setLoading(false); })
+      .then((d) => {
+        setSubscribers(d.subscribers ?? []);
+        setPendingSubmissions(d.pendingSubmissions ?? []);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [token]);
+  useEffect(() => {
+    load();
+  }, [token]);
 
-  const doAction = async (userId: string, action: "grant" | "revoke") => {
+  const doAction = async (userId: string, action: "grant" | "approve" | "reject" | "revoke") => {
     setActionLoading(userId);
     try {
       await fetch("/api/admin/subscriptions", {
@@ -42,109 +61,164 @@ export default function AdminSubscriptionsPage() {
         body: JSON.stringify({ userId, action }),
       });
       load();
-    } finally { setActionLoading(null); }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const copyUtr = (utr: string) => {
+    navigator.clipboard.writeText(utr);
+    setCopiedUtr(utr);
+    setTimeout(() => setCopiedUtr(null), 2000);
   };
 
   const fmtDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+    d
+      ? new Date(d).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—";
 
-  const filtered = subscribers.filter((s) =>
+  const filteredSubscribers = subscribers.filter((s) =>
     (s.email ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const pendingList = pendingSubmissions.filter((p) => p.status === "pending_review");
   const mrr = subscribers.reduce((sum, s) => sum + (s.amount ?? 0), 0);
 
   return (
-    <div>
+    <div className="space-y-8">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, color: "#171717", marginBottom: 4 }}>Subscriptions</h1>
-          <p style={{ color: "#7A7A76", fontSize: 15 }}>{subscribers.length} active subscribers</p>
+          <h1 className="text-[32px] font-bold text-ink leading-tight font-pt-narrow">
+            Subscriptions & Payments
+          </h1>
+          <p className="text-[15px] text-text-gray font-pt-narrow">
+            Manage UPI manual reviews, active subscriptions, and user tiers.
+          </p>
         </div>
         <input
-          placeholder="Search by email…"
+          placeholder="Search by user email…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{
-            background: "#fff", border: "2px solid #171717", borderRadius: 10,
-            padding: "8px 14px", color: "#171717", fontSize: 14, outline: "none",
-            width: 240, boxShadow: "2px 2px 0 #171717", fontFamily: "inherit",
-          }}
+          className="bg-white border-2 border-ink rounded-[10px] px-4 py-2 text-[14px] text-ink outline-none w-full sm:w-[260px] shadow-[2px_2px_0_#171717] font-pt-narrow"
         />
       </div>
 
-      {/* MRR Card */}
-      <div
-        style={{
-          display: "inline-block",
-          background: "#fff",
-          border: "2px solid #171717",
-          borderRadius: 14,
-          padding: "20px 28px",
-          marginBottom: 28,
-          boxShadow: "4px 4px 0 #171717",
-          borderTop: "4px solid #3222DD",
-          minWidth: 200,
-        }}
-      >
-        <p style={{ fontSize: 11, color: "#7A7A76", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-          Est. MRR
-        </p>
-        <p style={{ fontSize: 40, fontWeight: 800, color: "#3222DD", lineHeight: 1 }}>
-          ₹{mrr.toLocaleString("en-IN")}
-        </p>
-        <p style={{ fontSize: 12, color: "#7A7A76", marginTop: 6 }}>from active subscribers</p>
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-white border-2 border-ink rounded-[16px] p-6 shadow-[4px_4px_0_#171717] border-t-4 border-t-indigo">
+          <p className="text-[12px] text-text-gray font-bold tracking-wider uppercase mb-1 font-pt-narrow">
+            Est. Monthly Recurring Revenue
+          </p>
+          <p className="text-[38px] font-bold text-indigo leading-none font-pt-narrow">
+            ₹{mrr.toLocaleString("en-IN")}
+          </p>
+          <p className="text-[13px] text-text-gray mt-2 font-pt-narrow">
+            from {subscribers.length} active Pro subscribers
+          </p>
+        </div>
+
+        <div className="bg-white border-2 border-ink rounded-[16px] p-6 shadow-[4px_4px_0_#171717] border-t-4 border-t-[#FFE500]">
+          <p className="text-[12px] text-text-gray font-bold tracking-wider uppercase mb-1 font-pt-narrow">
+            Pending UPI Verifications
+          </p>
+          <p className="text-[38px] font-bold text-ink leading-none font-pt-narrow">
+            {pendingList.length}
+          </p>
+          <p className="text-[13px] text-text-gray mt-2 font-pt-narrow">
+            subscribers awaiting admin approval
+          </p>
+        </div>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <p style={{ color: "#7A7A76" }}>Loading subscriptions…</p>
-      ) : (
-        <div style={{ border: "2px solid #171717", borderRadius: 14, overflow: "hidden", boxShadow: "4px 4px 0 #171717", background: "#fff" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* ── 1. PENDING UPI REVIEWS SECTION ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-amber-500 animate-pulse" />
+          <h2 className="text-[20px] font-bold text-ink font-pt-narrow">
+            Pending UPI Submissions ({pendingList.length})
+          </h2>
+        </div>
+
+        <div className="border-2 border-ink rounded-[16px] overflow-hidden shadow-[4px_4px_0_#171717] bg-white">
+          <table className="w-full border-collapse">
             <thead>
-              <tr style={{ background: "#F5F5F3", borderBottom: "2px solid #171717" }}>
-                {["Email", "Plan", "Status", "Amount", "Activated", "Renewal", "Actions"].map((h) => (
-                  <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "#5B5B58", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                    {h}
-                  </th>
-                ))}
+              <tr className="bg-amber-50 border-b-2 border-ink">
+                {["User Email", "Plan", "Amount", "12-Digit UTR Number", "Submitted", "Actions"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[12px] font-bold text-ink tracking-wider uppercase font-pt-narrow"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {pendingList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#7A7A76", lineHeight: 1.7 }}>
-                    {subscribers.length === 0
-                      ? "No active subscribers yet.\nSubscription info is stored in user_metadata after a successful Razorpay payment."
-                      : "No results match your search"}
+                  <td colSpan={6} className="p-8 text-center text-text-gray font-pt-narrow text-[15px]">
+                    🎉 No pending UPI submissions! All payments are verified.
                   </td>
                 </tr>
               ) : (
-                filtered.map((s, i) => (
-                  <tr key={s.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid #e5e5e5" : "none" }}>
-                    <td style={{ padding: "12px 16px", fontSize: 14, color: "#171717", fontFamily: "monospace" }}>{s.email}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#5B5B58", textTransform: "capitalize" }}>{s.plan}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span style={{
-                        display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-                        background: s.status === "active" ? "#f0fff4" : "#fff0f0",
-                        color: s.status === "active" ? "#276749" : "#c53030",
-                        border: `1.5px solid ${s.status === "active" ? "#26A94C" : "#e53e3e"}`,
-                      }}>
-                        {s.status}
+                pendingList.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    className={`border-b border-gray-200 hover:bg-amber-50/40 transition-colors ${
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-[14px] text-ink font-bold font-mono">
+                      {p.email}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] text-ink uppercase font-bold font-pt-narrow">
+                      {p.plan}
+                    </td>
+                    <td className="px-4 py-3 text-[14px] font-bold text-indigo font-pt-narrow">
+                      ₹{p.amount.toLocaleString("en-IN")}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] font-mono">
+                      <span className="bg-gray-100 border border-gray-300 rounded px-2 py-1 font-bold text-ink select-all">
+                        {p.utr}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => copyUtr(p.utr)}
+                        className="ml-2 text-xs text-indigo font-bold hover:underline"
+                      >
+                        {copiedUtr === p.utr ? "✓ Copied" : "Copy"}
+                      </button>
                     </td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#5B5B58" }}>
-                      {s.amount ? `₹${s.amount.toLocaleString("en-IN")}` : "—"}
+                    <td className="px-4 py-3 text-[12px] text-text-gray font-pt-narrow">
+                      {fmtDate(p.submittedAt)}
                     </td>
-                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#7A7A76" }}>{fmtDate(s.activatedAt)}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#7A7A76" }}>{fmtDate(s.renewalDate)}</td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <ActionBtn label="Grant" color="#26A94C" loading={actionLoading === s.id} onClick={() => doAction(s.id, "grant")} />
-                        <ActionBtn label="Revoke" color="#e53e3e" loading={actionLoading === s.id} onClick={() => doAction(s.id, "revoke")} />
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => doAction(p.id, "approve")}
+                          disabled={actionLoading === p.id}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-[8px] text-[13px] font-bold font-pt-narrow border border-ink shadow-[1px_1px_0_#171717] disabled:opacity-50 transition-all cursor-pointer"
+                        >
+                          ✓ Approve (Grant Pro)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => doAction(p.id, "reject")}
+                          disabled={actionLoading === p.id}
+                          className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-[8px] text-[13px] font-bold font-pt-narrow border border-red-300 disabled:opacity-50 transition-all cursor-pointer"
+                        >
+                          ✕ Reject Fake UTR
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -153,16 +227,86 @@ export default function AdminSubscriptionsPage() {
             </tbody>
           </table>
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
 
-function ActionBtn({ label, color, onClick, loading }: { label: string; color: string; onClick: () => void; loading: boolean }) {
-  return (
-    <button onClick={onClick} disabled={loading}
-      style={{ padding: "5px 12px", fontSize: 12, fontWeight: 700, background: "#fff", border: `2px solid ${color}`, borderRadius: 6, color, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.5 : 1, fontFamily: "inherit" }}>
-      {label}
-    </button>
+      {/* ── 2. ACTIVE SUBSCRIBERS TABLE ── */}
+      <div className="space-y-3">
+        <h2 className="text-[20px] font-bold text-ink font-pt-narrow">
+          Active Subscribers ({filteredSubscribers.length})
+        </h2>
+
+        <div className="border-2 border-ink rounded-[16px] overflow-hidden shadow-[4px_4px_0_#171717] bg-white">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-ink">
+                {["User Email", "Plan", "Status", "Amount", "Activated", "Renewal", "Actions"].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-[12px] font-bold text-text-gray tracking-wider uppercase font-pt-narrow"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-text-gray font-pt-narrow">
+                    Loading subscriptions…
+                  </td>
+                </tr>
+              ) : filteredSubscribers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-text-gray font-pt-narrow leading-relaxed">
+                    No active subscribers yet.
+                  </td>
+                </tr>
+              ) : (
+                filteredSubscribers.map((s, i) => (
+                  <tr
+                    key={s.id}
+                    className={`border-b border-gray-200 hover:bg-gray-50/80 transition-colors ${
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-[14px] text-ink font-mono">{s.email}</td>
+                    <td className="px-4 py-3 text-[13px] text-ink uppercase font-bold font-pt-narrow">
+                      {s.plan}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[12px] font-bold bg-green-100 text-green-800 border border-green-300 font-pt-narrow">
+                        Active
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[14px] font-bold text-indigo font-pt-narrow">
+                      ₹{s.amount.toLocaleString("en-IN")}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-text-gray font-pt-narrow">
+                      {fmtDate(s.activatedAt)}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-text-gray font-pt-narrow">
+                      {fmtDate(s.renewalDate)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => doAction(s.id, "revoke")}
+                        disabled={actionLoading === s.id}
+                        className="px-3 py-1 bg-white hover:bg-red-50 text-red-600 rounded-[8px] text-[12px] font-bold font-pt-narrow border border-red-300 transition-all cursor-pointer"
+                      >
+                        Revoke Access
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }

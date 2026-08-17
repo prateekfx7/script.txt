@@ -54,7 +54,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+import { useAuth } from "@/lib/useAuth";
+
 export default function Dropzone() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [mode, setMode] = useState<Mode>("upload");
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -64,13 +68,13 @@ export default function Dropzone() {
   const [statusText, setStatusText] = useState<string>("Processing file…");
   const [error, setError] = useState<string | null>(null);
   const [dailyCount, setDailyCount] = useState<number>(0);
-  const router = useRouter();
 
   useEffect(() => {
     setDailyCount(getDailyUsageCount());
   }, []);
 
-  const isLimitReached = dailyCount >= DAILY_LIMIT;
+  const isSubscriber = user?.user_metadata?.subscription?.status === "active";
+  const isLimitReached = !isSubscriber && dailyCount >= DAILY_LIMIT;
 
   const startTranscription = useCallback(
     async (file: File | null, link: string | null, language: string) => {

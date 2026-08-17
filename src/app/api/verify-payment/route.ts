@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,33 +10,85 @@ export async function POST(req: NextRequest) {
     ).trim();
 
     const body = await req.json().catch(() => ({}));
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, upi_utr, payment_method } = body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      plan,
+      upi_utr,
+      payment_method,
+      user_email,
+      amount,
+    } = body;
 
-    // Direct UPI / UTR Verification handling
+    // ── 1. DIRECT UPI / UTR MANUAL REVIEW SUBMISSION ──
     if (upi_utr !== undefined || payment_method === "upi") {
       const rawUtr = String(upi_utr || "").trim();
       const cleanUtr = rawUtr.replace(/[^a-zA-Z0-9]/g, "");
 
-      if (!cleanUtr || cleanUtr.length < 4) {
+      // Validation: Indian Banking UTR numbers are 12 digits (or 8-18 chars)
+      if (!cleanUtr || cleanUtr.length < 8 || cleanUtr.length > 22) {
         return NextResponse.json(
-          { error: "Please enter a valid UPI Reference / UTR Number (minimum 4 digits)" },
+          {
+            error:
+              "Please enter a valid 12-digit UPI Reference / UTR Number found in your payment app receipt.",
+          },
           { status: 400 }
         );
       }
 
+      const planType = plan || "pro";
+      const planAmount = amount || (planType === "team" ? 1000 : 500);
+
+      // If user email is passed, record the submission in Supabase user metadata
+      if (user_email) {
+        const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        });
+
+        const targetUser = usersData?.users?.find(
+          (u) => u.email?.toLowerCase() === user_email.toLowerCase()
+        );
+
+        if (targetUser) {
+          const existingMeta = targetUser.user_metadata ?? {};
+          const renewalDate = new Date();
+          renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+          await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
+            user_metadata: {
+              ...existingMeta,
+              subscription: {
+                status: "pending_review",
+                plan: planType,
+                amount: planAmount,
+                utr: cleanUtr,
+                submittedAt: new Date().toISOString(),
+                renewalDate: renewalDate.toISOString(),
+              },
+            },
+          });
+        }
+      }
+
+      // DO NOT automatically activate access on raw UTR!
       return NextResponse.json({
-        verified: true,
-        message: "UPI transaction verified successfully!",
+        verified: false,
+        status: "pending_review",
+        message:
+          "Payment reference submitted successfully. Pro access will be activated once verified by admin.",
         paymentId: `UPI_UTR_${cleanUtr}`,
-        orderId: razorpay_order_id || `order_upi_${Date.now()}`,
-        plan: plan || "pro",
+        utr: cleanUtr,
+        plan: planType,
       });
     }
 
-    // Test fallback check
+    // ── 2. TEST ORDER FALLBACK ──
     if (razorpay_order_id?.startsWith("order_test_")) {
       return NextResponse.json({
         verified: true,
+        status: "active",
         message: "Test payment verified successfully",
         paymentId: razorpay_payment_id || `pay_test_${Date.now()}`,
         orderId: razorpay_order_id,
@@ -43,6 +96,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ── 3. AUTOMATED RAZORPAY GATEWAY SIGNATURE VERIFICATION ──
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
         { error: "Missing required payment verification parameters" },
@@ -50,7 +104,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", keySecret)
@@ -67,8 +120,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // If verified via Gateway, activate user subscription
+    if (user_email) {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      const targetUser = usersData?.users?.find(
+        (u) => u.email?.toLowerCase() === user_email.toLowerCase()
+      );
+
+      if (targetUser) {
+        const existingMeta = targetUser.user_metadata ?? {};
+        const renewalDate = new Date();
+        renewalDate.setMonth(renewalDate.getMonth() + 1);
+
+        await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
+          user_metadata: {
+            ...existingMeta,
+            subscription: {
+              status: "active",
+              plan: plan || "pro",
+              amount: plan === "team" ? 1000 : 500,
+              paymentId: razorpay_payment_id,
+              activatedAt: new Date().toISOString(),
+              renewalDate: renewalDate.toISOString(),
+            },
+          },
+        });
+      }
+    }
+
     return NextResponse.json({
       verified: true,
+      status: "active",
       message: "Payment verified successfully",
       paymentId: razorpay_payment_id,
       orderId: razorpay_order_id,
