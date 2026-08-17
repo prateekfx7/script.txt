@@ -103,59 +103,124 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 2. INSTAGRAM REELS & POSTS (3-METHOD SCRAPER PIPELINE) ──
-    const isInsta = /instagram\.com\/(reel|p|reels)\/([a-zA-Z0-9_-]+)/i.test(cleanUrl);
+    // ── 2. INSTAGRAM REELS & POSTS (MULTI-LAYER RESOLVER PIPELINE) ──
+    const isInsta = /instagram\.com\/(reel|p|reels|tv)\/([a-zA-Z0-9_-]+)/i.test(cleanUrl);
     if (isInsta) {
-      const match = cleanUrl.match(/instagram\.com\/(reel|p|reels)\/([a-zA-Z0-9_-]+)/i);
+      const match = cleanUrl.match(/instagram\.com\/(reel|p|reels|tv)\/([a-zA-Z0-9_-]+)/i);
       const reelId = match?.[2] ?? "reel";
-      let directVideoUrl: string | null = null;
+      let videoBuffer: Buffer | null = null;
+      const sessionId = process.env.INSTAGRAM_SESSION_ID;
 
-      // Method A: Mobile Embed Scraper
+      // ── Method 1: Instagram GraphQL / Web API (with Session Cookie if provided) ──
       try {
-        const embedUrl = `https://www.instagram.com/p/${reelId}/embed/captioned/`;
-        const embedRes = await fetch(embedUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-          },
+        const headers: Record<string, string> = {
+          "User-Agent":
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+          "X-IG-App-ID": "936619743392459",
+          "Sec-Fetch-Site": "same-origin",
+        };
+        if (sessionId) {
+          headers["Cookie"] = `sessionid=${sessionId};`;
+        }
+
+        const apiRes = await fetch(`https://www.instagram.com/p/${reelId}/?__a=1&__d=dis`, {
+          headers,
         });
-        if (embedRes.ok) {
-          const embedHtml = await embedRes.text();
-          directVideoUrl = extractInstagramMp4Url(embedHtml);
+
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          const directUrl =
+            apiData?.items?.[0]?.video_versions?.[0]?.url ||
+            apiData?.graphql?.shortcode_media?.video_url ||
+            apiData?.items?.[0]?.carousel_media?.[0]?.video_versions?.[0]?.url;
+
+          if (directUrl) {
+            const vRes = await fetch(directUrl, { headers: { Referer: "https://www.instagram.com/" } });
+            if (vRes.ok) {
+              videoBuffer = Buffer.from(await vRes.arrayBuffer());
+            }
+          }
         }
       } catch (e1) {
-        console.warn("Method A failed:", e1);
+        console.warn("Instagram Web API method failed:", e1);
       }
 
-      // Method B: Web API Header Scraper (X-IG-App-ID)
-      if (!directVideoUrl) {
+      // ── Method 2: Mobile Embed Scraper ──
+      if (!videoBuffer) {
         try {
-          const apiRes = await fetch(`https://www.instagram.com/p/${reelId}/?__a=1&__d=dis`, {
+          const embedRes = await fetch(`https://www.instagram.com/p/${reelId}/embed/captioned/`, {
             headers: {
               "User-Agent":
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-              "X-IG-App-ID": "936619743392459",
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
             },
           });
-          if (apiRes.ok) {
-            const apiData = await apiRes.json();
-            directVideoUrl =
-              apiData?.items?.[0]?.video_versions?.[0]?.url ||
-              apiData?.graphql?.shortcode_media?.video_url ||
-              null;
+          if (embedRes.ok) {
+            const embedHtml = await embedRes.text();
+            const directUrl = extractInstagramMp4Url(embedHtml);
+            if (directUrl) {
+              const vRes = await fetch(directUrl, {
+                headers: {
+                  "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                  Referer: "https://www.instagram.com/",
+                },
+              });
+              if (vRes.ok) {
+                videoBuffer = Buffer.from(await vRes.arrayBuffer());
+              }
+            }
           }
         } catch (e2) {
-          console.warn("Method B failed:", e2);
+          console.warn("Instagram Embed scraper failed:", e2);
         }
       }
 
-      // Method C: og:video Meta Tag Scraper
-      if (!directVideoUrl) {
+      // ── Method 3: Multi-Node Public Media Resolvers (Cobalt instances) ──
+      if (!videoBuffer) {
+        const resolverNodes = [
+          "https://api.cobalt.tools",
+          "https://cobalt-api.kwiatekm.pl",
+          "https://co.wuk.sh/api/json",
+          "https://cobalt.tools/api/json",
+        ];
+
+        for (const node of resolverNodes) {
+          try {
+            const cobRes = await fetch(node, {
+              method: "POST",
+              headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                url: cleanUrl,
+                audioOnly: false,
+              }),
+            });
+
+            if (cobRes.ok) {
+              const cobData = await cobRes.json();
+              const targetUrl = cobData.url || cobData.audio || cobData.stream;
+              if (targetUrl) {
+                const streamRes = await fetch(targetUrl);
+                if (streamRes.ok) {
+                  videoBuffer = Buffer.from(await streamRes.arrayBuffer());
+                  if (videoBuffer && videoBuffer.byteLength > 1000) break;
+                }
+              }
+            }
+          } catch {
+            // Try next resolver node seamlessly
+          }
+        }
+      }
+
+      // ── Method 4: Open og:video Scraper ──
+      if (!videoBuffer) {
         try {
           const pageRes = await fetch(`https://www.instagram.com/reel/${reelId}/`, {
             headers: {
-              "User-Agent":
-                "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+              "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
             },
           });
           if (pageRes.ok) {
@@ -164,59 +229,52 @@ export async function POST(req: NextRequest) {
               pageHtml.match(/<meta\s+property="og:video"\s+content="([^"]+)"/i) ||
               pageHtml.match(/<meta\s+property="og:video:secure_url"\s+content="([^"]+)"/i);
             if (ogMatch?.[1]) {
-              directVideoUrl = ogMatch[1].replace(/&amp;/g, "&");
+              const ogUrl = ogMatch[1].replace(/&amp;/g, "&");
+              const vRes = await fetch(ogUrl);
+              if (vRes.ok) {
+                videoBuffer = Buffer.from(await vRes.arrayBuffer());
+              }
             }
           }
-        } catch (e3) {
-          console.warn("Method C failed:", e3);
+        } catch (e4) {
+          console.warn("Instagram OpenGraph scraper failed:", e4);
         }
       }
 
-      if (directVideoUrl) {
-        const videoRes = await fetch(directVideoUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            Referer: "https://www.instagram.com/",
+      // ── If successfully retrieved video buffer: Transcribe it! ──
+      if (videoBuffer && videoBuffer.byteLength > 500) {
+        // Transcribe audio using Whisper AI
+        const result = await transcribeBuffer(videoBuffer, `instagram_${reelId}.mp4`, "video/mp4", language);
+
+        // Save Job + Transcript to DB
+        const job = await prisma.job.create({
+          data: {
+            fileName: `Instagram Reel (${reelId})`,
+            fileUrl: cleanUrl,
+            sourceType: "link",
+            status: "done",
+            userId,
+            language: language !== "auto" ? language : null,
+            engine: "openai",
           },
         });
 
-        if (videoRes.ok) {
-          const arrayBuf = await videoRes.arrayBuffer();
-          const videoBuffer = Buffer.from(arrayBuf);
+        await prisma.transcript.create({
+          data: {
+            jobId: job.id,
+            text: result.text,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            segments: (result.segments || []) as any,
+          },
+        });
 
-          // Transcribe audio using Whisper AI
-          const result = await transcribeBuffer(videoBuffer, `instagram_${reelId}.mp4`, "video/mp4", language);
-
-          // Save Job + Transcript to DB
-          const job = await prisma.job.create({
-            data: {
-              fileName: `Instagram Reel (${reelId})`,
-              fileUrl: cleanUrl,
-              sourceType: "link",
-              status: "done",
-              userId,
-              language: language !== "auto" ? language : null,
-              engine: "openai",
-            },
-          });
-
-          await prisma.transcript.create({
-            data: {
-              jobId: job.id,
-              text: result.text,
-              segments: (result.segments || []) as any,
-            },
-          });
-
-          return NextResponse.json({ jobId: job.id });
-        }
+        return NextResponse.json({ jobId: job.id });
       }
 
       return NextResponse.json(
         {
           error:
-            `Instagram link (${reelId}) is private or login-restricted on Instagram. Download the MP4 video and drop the file into the upload box!`,
+            `Instagram Reel (${reelId}) is restricted or login-walled by Meta. Please download the MP4 using a reel saver and drag-and-drop the file to transcribe instantly!`,
         },
         { status: 422 }
       );
