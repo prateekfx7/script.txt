@@ -17,8 +17,14 @@ model Job {
   sourceType String      // "upload" | "link"
   status     String      @default("pending") // pending|processing|done|failed
   errorMsg   String?
+  userId     String?     // Supabase auth user ID (nullable for legacy jobs)
+  language   String?     // Language code used for transcription
+  engine     String?     // "local" | "openai"
+  starred    Boolean     @default(false)
   createdAt  DateTime    @default(now())
   transcript Transcript?
+
+  @@index([userId])
 }
 
 model Transcript {

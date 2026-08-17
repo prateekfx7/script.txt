@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
 import { prisma } from "@/lib/prisma";
 import { transcribeBuffer } from "@/lib/transcribe";
+import { getUserIdFromRequest } from "@/lib/getUserId";
 
 /**
  * Parses YouTube Video ID from various link formats
@@ -51,6 +52,7 @@ function extractInstagramMp4Url(embedHtml: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(req);
     const { url, language } = await req.json();
 
     if (!url || typeof url !== "string") {
@@ -80,6 +82,9 @@ export async function POST(req: NextRequest) {
               fileUrl: cleanUrl,
               sourceType: "link",
               status: "done",
+              userId,
+              language: language !== "auto" ? language : null,
+              engine: "openai",
             },
           });
 
@@ -190,6 +195,9 @@ export async function POST(req: NextRequest) {
               fileUrl: cleanUrl,
               sourceType: "link",
               status: "done",
+              userId,
+              language: language !== "auto" ? language : null,
+              engine: "openai",
             },
           });
 
@@ -244,6 +252,9 @@ export async function POST(req: NextRequest) {
               fileUrl: cleanUrl,
               sourceType: "link",
               status: "done",
+              userId,
+              language: language !== "auto" ? language : null,
+              engine: "openai",
             },
           });
 

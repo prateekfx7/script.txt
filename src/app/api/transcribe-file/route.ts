@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { transcribeBuffer } from "@/lib/transcribe";
+import { getUserIdFromRequest } from "@/lib/getUserId";
 
 export const maxDuration = 60; // Allow longer execution for audio transcription
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserIdFromRequest(req);
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const language = (formData.get("language") as string | null) || "auto";
@@ -28,6 +30,9 @@ export async function POST(req: NextRequest) {
         fileUrl: "direct://upload",
         sourceType: "upload",
         status: "done",
+        userId,
+        language: language !== "auto" ? language : null,
+        engine: "openai",
       },
     });
 

@@ -58,7 +58,7 @@ function formatFileSize(bytes: number): string {
 
 export default function Dropzone() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [mode, setMode] = useState<Mode>("upload");
 
   const isSubscriber = user?.user_metadata?.subscription?.status === "active";
@@ -110,8 +110,13 @@ export default function Dropzone() {
             formData.append("file", file);
             formData.append("language", language);
 
+            const authHeaders: Record<string, string> = session?.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {};
+
             const res = await fetch("/api/transcribe-file", {
               method: "POST",
+              headers: authHeaders,
               body: formData,
             });
 
@@ -133,11 +138,13 @@ export default function Dropzone() {
             setStatusText("Saving transcript…");
             const saveRes = await fetch("/api/jobs/save-local", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...authHeaders },
               body: JSON.stringify({
                 fileName: file.name,
                 text: result.text,
                 segments: result.segments,
+                language: language !== "auto" ? language : null,
+                engine: "local",
               }),
             });
 
@@ -160,17 +167,23 @@ export default function Dropzone() {
 
         // FREE TIER / LOCAL: 100% Local On-Device Whisper AI
         try {
+          const authHeaders: Record<string, string> = session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {};
+
           setStatusText("Running 100% Local Whisper AI on your device (Free & Private)…");
           const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
           setStatusText("Saving transcript…");
           const saveRes = await fetch("/api/jobs/save-local", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders },
             body: JSON.stringify({
               fileName: file.name,
               text: result.text,
               segments: result.segments,
+              language: language !== "auto" ? language : null,
+              engine: "local",
             }),
           });
 
@@ -193,10 +206,14 @@ export default function Dropzone() {
       // ── 2. LINK TRANSCRIPTION ──
       else if (link) {
         try {
+          const authHeaders: Record<string, string> = session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {};
+
           setStatusText("Fetching and analyzing media audio with AI…");
           const res = await fetch("/api/transcribe-link", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...authHeaders },
             body: JSON.stringify({ url: link, language }),
           });
           const data = await res.json();
@@ -214,7 +231,7 @@ export default function Dropzone() {
         }
       }
     },
-    [router, isLimitReached, isSubscriber]
+    [router, isLimitReached, isSubscriber, session]
   );
 
   const onFileAccepted = useCallback((file: File) => {
