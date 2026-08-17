@@ -677,15 +677,31 @@ export default function Dropzone() {
       )}
 
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-2xl max-w-md text-center">
-          <p className="text-sm text-red-600 font-medium leading-relaxed">{error}</p>
-          <button
-            type="button"
-            onClick={resetSelection}
-            className="btn-neo mt-3 text-xs px-4 py-2 bg-white cursor-pointer"
-          >
-            📂 Try Again
-          </button>
+        <div className="mt-4 p-5 bg-red-50 border-2 border-red-300 rounded-[16px] max-w-lg text-center shadow-[3px_3px_0_#171717]">
+          <div className="text-2xl mb-1.5">⚠️</div>
+          <p className="text-[14px] text-red-700 font-pt-narrow font-bold leading-relaxed">{error}</p>
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+            {error.includes("Instagram") && (
+              <a
+                href="https://snapinsta.app"
+                target="_blank"
+                rel="noreferrer"
+                className="btn-neo text-[13px] px-3.5 py-1.5 bg-[#FFE500] text-ink"
+              >
+                📥 1-Click Reel Downloader
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                resetSelection();
+                setMode("upload");
+              }}
+              className="btn-neo text-[13px] px-3.5 py-1.5 bg-white cursor-pointer"
+            >
+              🎬 Switch to Upload Box
+            </button>
+          </div>
         </div>
       )}
     </div>
