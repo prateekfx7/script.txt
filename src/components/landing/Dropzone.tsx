@@ -89,7 +89,7 @@ export default function Dropzone() {
       // ── 1. FILE TRANSCRIPTION (100% Local On-Device Whisper AI) ──
       if (file) {
         try {
-          setStatusText("Running 100% Local Whisper AI on your device…");
+          setStatusText("Processing with PrateekAI Neural Whisper Engine…");
           const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
           setStatusText("Saving transcript…");
@@ -227,7 +227,9 @@ export default function Dropzone() {
                           <span className="text-[12px] font-bold font-pt-narrow text-indigo bg-indigo/10 px-2 py-0.5 rounded-[6px]">
                             {selectedFile ? formatFileSize(selectedFile.size) : "Online Media Link"}
                           </span>
-                          <span className="text-[12px] text-text-gray font-pt-narrow">100% Local On-Device AI</span>
+                          <span className="text-[12px] font-bold font-pt-narrow text-indigo bg-[#FFE500]/40 px-2 py-0.5 rounded-[6px]">
+                            ⚡ PrateekAI Ultra Model v2.4
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -283,7 +285,7 @@ export default function Dropzone() {
                       }
                       className="btn-neo flex-1 justify-center py-3.5 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 cursor-pointer shadow-[4px_4px_0_#171717]"
                     >
-                      ⚡ Transcribe with Local AI
+                      ⚡ Transcribe with PrateekAI Model
                     </button>
                     <button
                       type="button"
@@ -302,7 +304,7 @@ export default function Dropzone() {
                     {statusText}
                   </div>
                   <p className="text-[14px] text-text-gray font-pt-narrow">
-                    Transcribing with 100% Local Whisper AI on your device (Free & Private)…
+                    ⚡ Processing speech with <strong className="text-indigo">PrateekAI Ultra Neural Engine</strong>…
                   </p>
                 </div>
               )}

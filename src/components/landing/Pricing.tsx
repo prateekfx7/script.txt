@@ -288,7 +288,7 @@ export default function Pricing() {
               <Checkmark /> Unlimited Transcripts Daily
             </li>
             <li className="flex items-center gap-[10px] font-bold text-[#FFE500]">
-              <Checkmark /> ⚡ 100% Private Local AI Engine
+              <Checkmark /> ⚡ PrateekAI Ultra Neural Model
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> 99%+ Accuracy & 40+ Languages
@@ -334,7 +334,7 @@ export default function Pricing() {
               <Checkmark /> Shared Team Workspaces
             </li>
             <li className="flex items-center gap-[10px] font-bold text-indigo">
-              <Checkmark /> ⚡ Unlimited Batch Processing
+              <Checkmark /> ⚡ PrateekAI Enterprise Dedicated Model
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> Unlimited Transcripts Daily
