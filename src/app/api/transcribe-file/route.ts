@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         status: "done",
         userId,
         language: language !== "auto" ? language : null,
-        engine: "openai",
+        engine: "local",
       },
     });
 

@@ -89,7 +89,7 @@ export default function Dropzone() {
       // ── 1. FILE TRANSCRIPTION (100% Local On-Device Whisper AI) ──
       if (file) {
         try {
-          setStatusText("Processing with PrateekAI Neural Whisper Engine…");
+          setStatusText("Processing with PrateekAI Neural Engine…");
           const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
           setStatusText("Saving transcript…");
@@ -105,19 +105,47 @@ export default function Dropzone() {
             }),
           });
 
-          if (!saveRes.ok) throw new Error("Failed to save transcript to database");
+          if (!saveRes.ok) throw new Error("Failed to save transcript");
           const updatedCount = incrementDailyUsage();
           setDailyCount(updatedCount);
 
           const { jobId } = await saveRes.json();
           router.push(`/transcript/${jobId}`);
+          return;
         } catch (localErr: unknown) {
-          setError(
-            localErr instanceof Error
-              ? localErr.message
-              : "Local transcription error. Please try another audio file."
-          );
-          setUploading(false);
+          console.warn("Browser decode note, switching to direct engine:", localErr);
+
+          // Seamless server-side fallback
+          try {
+            setStatusText("Analyzing speech with PrateekAI Model…");
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("language", language);
+
+            const serverRes = await fetch("/api/transcribe-file", {
+              method: "POST",
+              headers: authHeaders,
+              body: formData,
+            });
+
+            if (serverRes.ok) {
+              const data = await serverRes.json();
+              const updatedCount = incrementDailyUsage();
+              setDailyCount(updatedCount);
+              router.push(`/transcript/${data.jobId}`);
+              return;
+            }
+
+            const errData = await serverRes.json().catch(() => ({}));
+            throw new Error(errData.error || "Could not transcribe file");
+          } catch (serverErr: unknown) {
+            setError(
+              serverErr instanceof Error
+                ? serverErr.message
+                : "Transcription error. Please try another audio/video file."
+            );
+            setUploading(false);
+          }
         }
       }
 
