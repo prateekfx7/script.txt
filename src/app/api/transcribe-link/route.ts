@@ -59,7 +59,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    const cleanUrl = url.trim();
+    let cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
 
     // ── 1. YOUTUBE LINK TRANSCRIPTION ──
     const youtubeId = extractYoutubeId(cleanUrl);
@@ -100,6 +103,13 @@ export async function POST(req: NextRequest) {
         }
       } catch (ytErr) {
         console.warn("YouTube caption fetch error:", ytErr);
+        return NextResponse.json(
+          {
+            error:
+              "Could not retrieve captions for this YouTube video (captions may be disabled on YouTube). Please drop the video/audio file into the upload box for instant transcription.",
+          },
+          { status: 422 }
+        );
       }
     }
 
