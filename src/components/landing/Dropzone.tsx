@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
+import { transcribeFileLocally } from "@/lib/browserTranscribe";
 import { getDailyUsageCount, incrementDailyUsage, DAILY_LIMIT } from "@/lib/usageTracker";
 import { useAuth } from "@/lib/useAuth";
 
 type Mode = "upload" | "link";
+type Engine = "auto" | "openai" | "local";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "auto", name: "Auto Detect (99+ Languages)", flag: "🌐" },
@@ -58,6 +60,7 @@ export default function Dropzone() {
   const router = useRouter();
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>("upload");
+  const [engine, setEngine] = useState<Engine>("auto");
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(null);
@@ -75,13 +78,49 @@ export default function Dropzone() {
   const isLimitReached = !isSubscriber && dailyCount >= DAILY_LIMIT;
 
   const startTranscription = useCallback(
-    async (file: File | null, link: string | null, language: string) => {
+    async (file: File | null, link: string | null, language: string, selectedEngine: Engine) => {
       if (isLimitReached) return;
       setError(null);
       setUploading(true);
 
       // ── 1. FILE TRANSCRIPTION ──
       if (file) {
+        // If user explicitly chose 100% Local Model
+        if (selectedEngine === "local") {
+          try {
+            setStatusText("Running 100% Local Whisper AI on your device…");
+            const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
+
+            setStatusText("Saving transcript…");
+            const saveRes = await fetch("/api/jobs/save-local", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                fileName: file.name,
+                text: result.text,
+                segments: result.segments,
+              }),
+            });
+
+            if (!saveRes.ok) throw new Error("Failed to save transcript to database");
+            const updatedCount = incrementDailyUsage();
+            setDailyCount(updatedCount);
+
+            const { jobId } = await saveRes.json();
+            router.push(`/transcript/${jobId}`);
+            return;
+          } catch (localErr: unknown) {
+            setError(
+              localErr instanceof Error
+                ? localErr.message
+                : "Local transcription error. Please try OpenAI Whisper."
+            );
+            setUploading(false);
+            return;
+          }
+        }
+
+        // Try OpenAI Whisper API (or auto fallback to 100% Local Model)
         try {
           setStatusText("Transcribing speech with OpenAI Whisper…");
 
@@ -103,42 +142,30 @@ export default function Dropzone() {
           }
 
           const errorData = await res.json().catch(() => ({}));
+          console.warn("OpenAI API transcription error, falling back to 100% Local Model:", errorData);
 
-          // Fallback: storage pipeline for larger files
-          setStatusText("Uploading media to processing server…");
-          const urlRes = await fetch("/api/upload-url", {
+          // Fallback to 100% Local Whisper AI on device
+          setStatusText("Switching to 100% Local Whisper AI (Device)…");
+          const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
+
+          setStatusText("Saving transcript…");
+          const saveRes = await fetch("/api/jobs/save-local", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: file.name, contentType: file.type || "video/mp4" }),
+            body: JSON.stringify({
+              fileName: file.name,
+              text: result.text,
+              segments: result.segments,
+            }),
           });
 
-          if (!urlRes.ok) throw new Error(errorData.error || "Failed to process audio.");
-          const { uploadUrl, publicUrl } = await urlRes.json();
+          if (!saveRes.ok) throw new Error(errorData.error || "Failed to save transcript");
 
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.addEventListener("load", () => {
-              if (xhr.status >= 200 && xhr.status < 300) resolve();
-              else reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
-            });
-            xhr.addEventListener("error", () => reject(new Error("Network error during upload.")));
-            xhr.open("PUT", uploadUrl);
-            xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
-            xhr.send(file);
-          });
-
-          const jobRes = await fetch("/api/jobs", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: file.name, fileUrl: publicUrl, sourceType: "upload" }),
-          });
-
-          if (!jobRes.ok) throw new Error("Failed to create transcription job.");
           const updatedCount = incrementDailyUsage();
           setDailyCount(updatedCount);
 
-          const { jobId } = await jobRes.json();
-          router.push(`/jobs/${jobId}`);
+          const { jobId } = await saveRes.json();
+          router.push(`/transcript/${jobId}`);
         } catch (err: unknown) {
           setError(
             err instanceof Error ? err.message : "Something went wrong during transcription. Please try again."
@@ -150,7 +177,7 @@ export default function Dropzone() {
       // ── 2. LINK TRANSCRIPTION ──
       else if (link) {
         try {
-          setStatusText("Fetching and analyzing link audio…");
+          setStatusText("Fetching and analyzing media audio with OpenAI Whisper…");
           const res = await fetch("/api/transcribe-link", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -233,7 +260,7 @@ export default function Dropzone() {
         </div>
       ) : (
         <>
-          {/* STEP 2: Language Selection & Confirmation Card (Shown AFTER upload/link) */}
+          {/* STEP 2: Language Selection & AI Engine Panel (Shown AFTER upload/link) */}
           {hasMediaSelected ? (
             <div className="w-full bg-white border-2 border-ink rounded-[24px] p-6 sm:p-8 shadow-[6px_6px_0_#171717] animate-in fade-in zoom-in-95 duration-200">
               {!uploading ? (
@@ -259,23 +286,86 @@ export default function Dropzone() {
                     <button
                       type="button"
                       onClick={resetSelection}
-                      className="text-text-gray hover:text-ink font-bold font-pt-narrow text-[13px] underline hover:no-underline shrink-0"
+                      className="text-text-gray hover:text-ink font-bold font-pt-narrow text-[13px] underline hover:no-underline shrink-0 cursor-pointer"
                     >
                       Change
                     </button>
+                  </div>
+
+                  {/* AI Engine Selection */}
+                  <div className="mb-5">
+                    <label className="block font-pt-narrow font-bold text-[15px] text-ink mb-2">
+                      🤖 AI Transcription Engine:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEngine("openai")}
+                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer ${
+                          engine === "openai" || engine === "auto"
+                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
+                            : "bg-white text-ink hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-pt-narrow font-bold text-[15px]">
+                          <span>⚡ OpenAI Whisper</span>
+                          <span
+                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
+                              engine === "openai" || engine === "auto"
+                                ? "bg-[#FFE500] text-ink"
+                                : "bg-indigo/10 text-indigo"
+                            }`}
+                          >
+                            Cloud AI
+                          </span>
+                        </div>
+                        <p
+                          className={`text-[12px] font-pt-narrow mt-0.5 ${
+                            engine === "openai" || engine === "auto" ? "text-white/80" : "text-text-gray"
+                          }`}
+                        >
+                          Highest accuracy & fast cloud processing
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEngine("local")}
+                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer ${
+                          engine === "local"
+                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
+                            : "bg-white text-ink hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-pt-narrow font-bold text-[15px]">
+                          <span>🔒 100% Local AI</span>
+                          <span
+                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
+                              engine === "local" ? "bg-[#FFE500] text-ink" : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            Device
+                          </span>
+                        </div>
+                        <p
+                          className={`text-[12px] font-pt-narrow mt-0.5 ${
+                            engine === "local" ? "text-white/80" : "text-text-gray"
+                          }`}
+                        >
+                          100% private, on-device Whisper model
+                        </p>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Language Selection Step */}
                   <div className="mb-6">
                     <label
                       htmlFor="modal-language-select"
-                      className="block font-pt-narrow font-bold text-[16px] text-ink mb-1.5"
+                      className="block font-pt-narrow font-bold text-[15px] text-ink mb-1.5"
                     >
-                      🗣️ What language is spoken in this audio?
+                      🗣️ Spoken Language:
                     </label>
-                    <p className="font-pt-narrow text-[13px] text-text-gray mb-3">
-                      Select specific language for 99%+ speech accuracy, or keep Auto Detect.
-                    </p>
 
                     <div className="relative">
                       <select
@@ -306,7 +396,9 @@ export default function Dropzone() {
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => startTranscription(selectedFile, selectedLink, selectedLanguage)}
+                      onClick={() =>
+                        startTranscription(selectedFile, selectedLink, selectedLanguage, engine)
+                      }
                       className="btn-neo flex-1 justify-center py-3.5 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 cursor-pointer shadow-[4px_4px_0_#171717]"
                     >
                       ⚡ Transcribe with AI
@@ -332,7 +424,8 @@ export default function Dropzone() {
                     <span className="font-bold text-ink">
                       {SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "selected language"}
                     </span>{" "}
-                    with OpenAI Whisper…
+                    ({engine === "local" ? "100% Local On-Device AI" : "OpenAI Whisper"}
+                    )…
                   </p>
                 </div>
               )}
