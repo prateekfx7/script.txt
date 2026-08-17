@@ -51,7 +51,7 @@ function extractInstagramMp4Url(embedHtml: string): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json();
+    const { url, language } = await req.json();
 
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
           const videoBuffer = Buffer.from(arrayBuf);
 
           // Transcribe audio using Whisper AI
-          const result = await transcribeBuffer(videoBuffer, `instagram_${reelId}.mp4`, "video/mp4");
+          const result = await transcribeBuffer(videoBuffer, `instagram_${reelId}.mp4`, "video/mp4", language);
 
           // Save Job + Transcript to DB
           const job = await prisma.job.create({
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
           const fileName = cleanUrl.split("/").pop()?.split("?")[0] || "linked_media.mp4";
           const contentType = mediaRes.headers.get("content-type") || "video/mp4";
 
-          const result = await transcribeBuffer(videoBuffer, fileName, contentType);
+          const result = await transcribeBuffer(videoBuffer, fileName, contentType, language);
 
           const job = await prisma.job.create({
             data: {

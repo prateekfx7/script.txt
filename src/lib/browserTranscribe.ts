@@ -20,7 +20,8 @@ async function getTranscriber(onProgress?: (msg: string) => void) {
     const { pipeline, env } = await import("@xenova/transformers");
     env.allowLocalModels = false;
 
-    transcriberPromise = pipeline("automatic-speech-recognition", "Xenova/whisper-tiny.en", {
+    // Use multilingual whisper-tiny model supporting 99+ languages
+    transcriberPromise = pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
       progress_callback: (p: { status: string; file?: string; progress?: number }) => {
         if (p.status === "progress" && p.progress) {
           onProgress?.(`Downloading AI model… ${Math.round(p.progress)}%`);
@@ -34,11 +35,12 @@ async function getTranscriber(onProgress?: (msg: string) => void) {
 }
 
 /**
- * Transcribes any video/audio file locally inside the user's browser with 0 API calls.
+ * Transcribes any video/audio file locally inside the user's browser with multilingual support.
  */
 export async function transcribeFileLocally(
   file: File,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  language?: string
 ): Promise<LocalTranscriptionResult> {
   onProgress?.("Decoding video/audio track…");
   const audioData = await decodeAudioFile(file);
@@ -48,11 +50,20 @@ export async function transcribeFileLocally(
   const transcriber = (await getTranscriber(onProgress)) as any;
 
   onProgress?.("Transcribing locally on your device…");
-  const output = await transcriber(audioData, {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts: any = {
     return_timestamps: true,
     chunk_length_s: 30,
     stride_length_s: 5,
-  });
+    task: "transcribe",
+  };
+
+  if (language && language !== "auto") {
+    opts.language = language;
+  }
+
+  const output = await transcriber(audioData, opts);
 
   const text = output.text || "";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

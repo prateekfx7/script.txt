@@ -35,18 +35,26 @@ export interface TranscriptionResult {
 export async function transcribeBuffer(
   buffer: Buffer,
   fileName: string,
-  mimeType: string
+  mimeType: string,
+  language?: string
 ): Promise<TranscriptionResult> {
   const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
   const model = process.env.WHISPER_MODEL ?? "whisper-large-v3";
 
   try {
-    const response = await client.audio.transcriptions.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: any = {
       model,
       file,
       response_format: "verbose_json",
       timestamp_granularities: ["segment"],
-    });
+    };
+
+    if (language && language !== "auto") {
+      params.language = language.toLowerCase();
+    }
+
+    const response = await client.audio.transcriptions.create(params);
 
     const raw = response as unknown as {
       text: string;
@@ -61,7 +69,7 @@ export async function transcribeBuffer(
 
     return {
       text: raw.text ?? "",
-      segments,
+      segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
     // Detect 429 Rate Limit Exceeded
