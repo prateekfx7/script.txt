@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎙️ Scribe.txt — AI Speech-to-Text Transcription Platform
 
-## Getting Started
+> **Turn any video, podcast, or audio clip into clean, timestamped transcripts in seconds.**  
+> Powered by **100% Local On-Device Whisper AI** for free private transcriptions and **Official OpenAI Whisper Cloud AI (`whisper-1`)** for Pro members.
 
-First, run the development server:
+---
 
+## ✨ Features
+
+- **🔒 100% Local On-Device Whisper AI**:
+  - Transcribe audio/video directly in the browser via WebAssembly & WebAudio.
+  - **Zero API costs & 100% Privacy** — audio data never leaves the user's computer.
+  - 7 free transcriptions daily for all users.
+- **⚡ OpenAI Whisper Cloud AI (Pro Feature)**:
+  - Powered by official OpenAI `whisper-1` model with priority queue and 99%+ accuracy.
+  - Unlimited daily transcriptions for active Pro & Team subscribers.
+- **🌐 99+ Languages & Auto-Detection**:
+  - Supports English, Hindi, Spanish, French, German, Japanese, Chinese, Russian, Arabic, and dozens of regional languages.
+- **🔗 Paste Links & Direct Uploads**:
+  - Direct upload for `.mp4`, `.mov`, `.mp3`, `.wav`, and `.m4a` files up to 500MB.
+  - Instant transcription for **YouTube videos/Shorts** and **Instagram Reels**.
+- **📑 Multi-Format Exports**:
+  - Export transcriptions with one click as **`.txt`**, **`.srt`** (Subtitles), or **`.vtt`** (Web Subtitles).
+- **💳 UPI Payments & Admin Manual Review**:
+  - Native Indian UPI payments via GPay, PhonePe, Paytm, BHIM, or QR Code.
+  - Secure 12-digit UTR bank verification queue in the Admin Dashboard to eliminate fraudulent submissions.
+- **🔐 Authentication**:
+  - Email/Password login and 1-click **Google OAuth** authentication with Supabase.
+- **🛠️ Comprehensive Admin Suite**:
+  - Admin Overview (`/admin/overview`), Subscriptions & UPI Queue (`/admin/subscriptions`), Jobs Monitoring (`/admin/jobs`), and System Health Checks (`/admin/health`).
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router, React Server Components & API routes)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: Neo-Brutalism design system with Tailwind CSS & custom CSS variables
+- **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL database, Auth, Storage) & [Prisma ORM](https://www.prisma.io/)
+- **AI Engines**:
+  - **Cloud**: [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) (`whisper-1`)
+  - **Local**: [@xenova/transformers](https://huggingface.co/docs/transformers.js) (`Xenova/whisper-tiny` multilingual)
+- **Background Jobs**: [Inngest](https://www.inngest.com/)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/prateekfx7/script.txt.git
+cd script.txt/scribe-txt
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install dependencies
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Setup Environment Variables
+Create a `.env.local` file in the `scribe-txt` root directory:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.local.example .env.local
+```
 
-## Learn More
+Fill in your configuration:
 
-To learn more about Next.js, take a look at the following resources:
+```env
+# ── Supabase ─────────────────────────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+DATABASE_URL=postgresql://postgres.your-project:password@aws-0-region.pooler.supabase.com:6543/postgres?pgbouncer=true
+DIRECT_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# ── OpenAI Whisper (For Pro Cloud AI) ────────────────────────────────────────
+OPENAI_API_KEY=sk-...
+TRANSCRIBE_API_BASE_URL=https://api.openai.com/v1
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# ── Inngest (Background Task Queue) ──────────────────────────────────────────
+INNGEST_EVENT_KEY=your-inngest-event-key
+INNGEST_SIGNING_KEY=your-inngest-signing-key
 
-## Deploy on Vercel
+# ── App URL ──────────────────────────────────────────────────────────────────
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Push Database Schema
+```bash
+npx prisma db push
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 5. Run Development Server
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 🌐 Deploying to Vercel
+
+1. Push your code to your GitHub repository.
+2. Import the project into [Vercel](https://vercel.com).
+3. Set the **Root Directory** to `scribe-txt`.
+4. In **Project Settings → Environment Variables**, add the environment variables listed in `.env.local.example`.
+5. Deploy! 🎉
+
+---
+
+## 📂 Project Structure
+
+```text
+scribe-txt/
+├── public/                 # Fonts, sticker assets, static files
+├── src/
+│   ├── app/
+│   │   ├── admin/          # Admin Dashboard (Subscriptions, Jobs, Health, Users)
+│   │   ├── api/            # API Endpoints (transcribe-file, transcribe-link, verify-payment)
+│   │   ├── auth/           # OAuth callback handler
+│   │   ├── login/          # Login & Signup page with Google OAuth
+│   │   ├── transcript/[id] # Transcript viewer & multi-format export
+│   │   └── page.tsx        # Landing page
+│   ├── components/
+│   │   └── landing/        # Dropzone, Hero, Pricing, AudioVisualizer, FAQ
+│   ├── lib/
+│   │   ├── browserTranscribe.ts # 100% Local On-Device Whisper AI
+│   │   ├── transcribe.ts        # OpenAI Whisper API cloud handler
+│   │   ├── usageTracker.ts      # Daily quota tracking (7 free/day)
+│   │   ├── webAudio.ts          # 16kHz audio decoding helper
+│   │   └── supabase.ts          # Supabase client & admin instances
+│   └── prisma/
+│       └── schema.prisma   # PostgreSQL database schema
+├── .env.local.example      # Environment variables template
+└── README.md
+```
+
+---
+
+## 📄 License & Credits
+
+Built with ❤️ by [Prateek Maurya](https://prateekfxportfolio.vercel.app/).  
+Licensed under the [MIT License](LICENSE).
