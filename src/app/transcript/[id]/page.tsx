@@ -18,7 +18,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "transcript — scribe.txt",
   };
@@ -34,7 +34,7 @@ export default async function TranscriptPage({ params }: { params: { id: string 
     notFound();
   }
 
-  const segments = transcript.segments as Segment[];
+  const segments = (transcript.segments as unknown) as Segment[];
   const { job } = transcript;
 
   return (

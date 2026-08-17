@@ -92,7 +92,7 @@ export async function processTranscriptionJob(jobId: string) {
       const result = await transcribeBuffer(fileBuffer, job.fileName, contentType);
 
       await prisma.transcript.create({
-        data: { jobId, text: result.text, segments: result.segments },
+        data: { jobId, text: result.text, segments: (result.segments || []) as any },
       });
 
       await prisma.job.update({

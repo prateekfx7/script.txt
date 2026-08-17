@@ -28,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: "Transcript not found" }, { status: 404 });
     }
 
-    const segments = transcript.segments as Segment[];
+    const segments = (transcript.segments as unknown) as Segment[];
     const baseName = transcript.job.fileName.replace(/\.[^/.]+$/, "") || "transcript";
 
     let content: string;

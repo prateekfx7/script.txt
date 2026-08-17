@@ -9,9 +9,9 @@ export const transcribeJob = inngest.createFunction(
     id: "transcribe-job",
     name: "Transcribe Job",
     retries: 2,
-    event: "job/transcribe",
+    triggers: [{ event: "job/transcribe" }],
   },
-  async ({ event, step }) => {
+  async ({ event, step }: any) => {
     const { jobId } = event.data as { jobId: string };
     await step.run("process-job", async () => {
       await processTranscriptionJob(jobId);

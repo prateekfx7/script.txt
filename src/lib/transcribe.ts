@@ -37,7 +37,7 @@ export async function transcribeBuffer(
   fileName: string,
   mimeType: string
 ): Promise<TranscriptionResult> {
-  const file = new File([buffer], fileName, { type: mimeType });
+  const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
   const model = process.env.WHISPER_MODEL ?? "whisper-large-v3";
 
   try {

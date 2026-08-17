@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const t0 = Date.now();
     const res = await fetch("http://localhost:8288/", { signal: AbortSignal.timeout(3000) });
     results.inngest = { ok: res.ok || res.status < 500, latencyMs: Date.now() - t0 };
-  } catch (e) {
+  } catch {
     results.inngest = { ok: false, latencyMs: 0, error: "Not reachable at :8288" };
   }
 
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const flagsPath = path.join(process.cwd(), "flags.json");
     fs.readFileSync(flagsPath, "utf-8");
     results.flags = { ok: true, latencyMs: 0 };
-  } catch (e) {
+  } catch {
     results.flags = { ok: false, latencyMs: 0, error: "flags.json not found" };
   }
 

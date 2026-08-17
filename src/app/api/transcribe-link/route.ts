@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
             data: {
               jobId: job.id,
               text: result.text,
-              segments: result.segments,
+              segments: (result.segments || []) as any,
             },
           });
 
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
             data: {
               jobId: job.id,
               text: result.text,
-              segments: result.segments,
+              segments: (result.segments || []) as any,
             },
           });
 

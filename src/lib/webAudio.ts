@@ -44,7 +44,7 @@ export async function decodeAudioFile(file: File): Promise<Float32Array> {
 
     await audioCtx.close().catch(() => {});
     return mono;
-  } catch (err) {
+  } catch {
     await audioCtx.close().catch(() => {});
     throw new Error(
       "Unable to decode audio data natively in browser. Falling back to server pipeline…"

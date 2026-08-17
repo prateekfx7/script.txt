@@ -57,11 +57,12 @@ export default function JobStatusPage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let active = true;
 
     const poll = async () => {
       try {
         const res = await fetch(`/api/jobs/${params.id}`);
+        if (!active) return;
         if (res.status === 404) {
           setError("Job not found.");
           return;
@@ -74,24 +75,29 @@ export default function JobStatusPage({ params }: { params: { id: string } }) {
         setJob(data);
 
         if (data.status === "done") {
-          clearInterval(interval);
           // Small delay so user sees the green "ready" state before redirect
-          setTimeout(() => router.push(`/transcript/${params.id}`), 800);
-        } else if (data.status === "failed") {
-          clearInterval(interval);
+          setTimeout(() => {
+            if (active) router.push(`/transcript/${params.id}`);
+          }, 800);
         }
       } catch {
-        setError("Network error while checking status.");
-        clearInterval(interval);
+        if (active) setError("Network error while checking status.");
       }
     };
 
     // Immediate first poll
     poll();
     // Then poll every 2 seconds
-    interval = setInterval(poll, 2000);
+    const interval = setInterval(() => {
+      if (job?.status !== "done" && job?.status !== "failed") {
+        poll();
+      }
+    }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [params.id, router]);
 
   const [retrying, setRetrying] = useState(false);

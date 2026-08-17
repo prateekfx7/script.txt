@@ -61,7 +61,7 @@ export default function AdminJobsPage() {
 
   const bulkDelete = async () => {
     setBulkLoading(true);
-    await Promise.all([...selected].map((id) =>
+    await Promise.all(Array.from(selected).map((id) =>
       fetch(`/api/admin/jobs/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } })
     ));
     setBulkLoading(false);
@@ -71,7 +71,11 @@ export default function AdminJobsPage() {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
