@@ -1,21 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
 type Mode = "login" | "signup";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // If already logged in, redirect to pricing
+  // Pick up error from URL params if present (e.g. from OAuth callback)
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+    }
+  }, [searchParams]);
+
+  // If already logged in, redirect to home/pricing
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -24,24 +34,46 @@ export default function LoginPage() {
     });
   }, [router]);
 
+  const validateSupabaseConfig = () => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("placeholder") || supabaseAnonKey.includes("placeholder")) {
+      return "Supabase credentials are missing or not configured. Please verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    const configError = validateSupabaseConfig();
+    if (configError) {
+      setError(configError);
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
         if (error) throw error;
-        setSuccess("Account created! Check your email to confirm, then log in.");
+        setSuccess("Account created! Check your email to confirm your address, then log in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.push("/#pricing");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -49,25 +81,46 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/#pricing`,
-      },
-    });
-    if (error) setError(error.message);
+    setSuccess(null);
+
+    const configError = validateSupabaseConfig();
+    if (configError) {
+      setError(configError);
+      return;
+    }
+
+    setGoogleLoading(true);
+
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+      if (error) throw error;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Google login failed.");
+      setGoogleLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-4 py-12">
       {/* Logo */}
-      <a href="/" className="font-pixel text-[32px] text-indigo leading-none mb-10 select-none hover:opacity-80 transition-opacity">
+      <a
+        href="/"
+        className="font-pixel text-[32px] text-indigo leading-none mb-10 select-none hover:opacity-80 transition-opacity"
+      >
         scribe.txt
       </a>
 
-      <div
-        className="w-full max-w-[440px] bg-white border-2 border-ink rounded-[24px] p-8 sm:p-10 shadow-[6px_6px_0_#171717]"
-      >
+      <div className="w-full max-w-[440px] bg-white border-2 border-ink rounded-[24px] p-8 sm:p-10 shadow-[6px_6px_0_#171717]">
         {/* Header */}
         <div className="mb-8">
           <h1 className="font-pt-narrow font-bold text-[30px] text-ink leading-tight mb-1">
@@ -84,7 +137,8 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={handleGoogleLogin}
-          className="w-full mb-5 flex items-center justify-center gap-3 border-2 border-ink bg-white rounded-[12px] py-3 px-4 font-pt-narrow font-bold text-[16px] text-ink shadow-neo-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#171717] transition-all"
+          disabled={googleLoading || loading}
+          className="w-full mb-5 flex items-center justify-center gap-3 border-2 border-ink bg-white rounded-[12px] py-3 px-4 font-pt-narrow font-bold text-[16px] text-ink shadow-neo-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#171717] disabled:opacity-60 transition-all cursor-pointer"
         >
           {/* Google Icon */}
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
@@ -105,7 +159,7 @@ export default function LoginPage() {
               fill="#EA4335"
             />
           </svg>
-          Continue with Google
+          {googleLoading ? "Connecting to Google..." : "Continue with Google"}
         </button>
 
         {/* Divider */}
@@ -152,14 +206,14 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-50 border-2 border-red-300 rounded-[10px] px-4 py-2.5 text-red-700 font-pt-narrow text-[14px] font-bold">
+            <div className="bg-red-50 border-2 border-red-300 rounded-[10px] px-4 py-2.5 text-red-700 font-pt-narrow text-[14px] font-bold break-words">
               {error}
             </div>
           )}
 
           {/* Success */}
           {success && (
-            <div className="bg-green-50 border-2 border-green-300 rounded-[10px] px-4 py-2.5 text-green-800 font-pt-narrow text-[14px] font-bold">
+            <div className="bg-green-50 border-2 border-green-300 rounded-[10px] px-4 py-2.5 text-green-800 font-pt-narrow text-[14px] font-bold break-words">
               {success}
             </div>
           )}
@@ -167,15 +221,11 @@ export default function LoginPage() {
           <button
             id="auth-submit-btn"
             type="submit"
-            disabled={loading}
-            className="w-full btn-neo justify-center py-3 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 disabled:opacity-60 mt-1"
+            disabled={loading || googleLoading}
+            className="w-full btn-neo justify-center py-3 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 disabled:opacity-60 mt-1 cursor-pointer"
             style={{ boxShadow: "4px 4px 0 #171717" }}
           >
-            {loading
-              ? "Please wait..."
-              : mode === "login"
-              ? "Log in"
-              : "Create account"}
+            {loading ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
           </button>
         </form>
 
@@ -186,7 +236,11 @@ export default function LoginPage() {
               No account yet?{" "}
               <button
                 type="button"
-                onClick={() => { setMode("signup"); setError(null); setSuccess(null); }}
+                onClick={() => {
+                  setMode("signup");
+                  setError(null);
+                  setSuccess(null);
+                }}
                 className="text-indigo font-bold hover:underline"
               >
                 Sign up free
@@ -197,7 +251,11 @@ export default function LoginPage() {
               Already have an account?{" "}
               <button
                 type="button"
-                onClick={() => { setMode("login"); setError(null); setSuccess(null); }}
+                onClick={() => {
+                  setMode("login");
+                  setError(null);
+                  setSuccess(null);
+                }}
                 className="text-indigo font-bold hover:underline"
               >
                 Log in
@@ -215,5 +273,20 @@ export default function LoginPage() {
         ← Back to scribe.txt
       </a>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-bg flex flex-col items-center justify-center">
+          <div className="w-12 h-12 border-4 border-indigo border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="font-pt-narrow font-bold text-[18px] text-ink">Loading login...</p>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
