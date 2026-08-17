@@ -62,36 +62,22 @@ export default function Dropzone() {
   const [mode, setMode] = useState<Mode>("upload");
 
   const isSubscriber = user?.user_metadata?.subscription?.status === "active";
-  const [engine, setEngine] = useState<Engine>(isSubscriber ? "openai" : "local");
-  const [showProUpgradeModal, setShowProUpgradeModal] = useState(false);
+  const engine: Engine = isSubscriber ? "openai" : "local";
 
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(null);
   const [linkInput, setLinkInput] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [statusText, setStatusText] = useState<string>("Processing file…");
+  const [statusText, setStatusText] = useState<string>("Transcribing audio…");
   const [error, setError] = useState<string | null>(null);
   const [dailyCount, setDailyCount] = useState<number>(0);
 
   useEffect(() => {
     setDailyCount(getDailyUsageCount());
-    if (isSubscriber) {
-      setEngine("openai");
-    } else {
-      setEngine("local");
-    }
   }, [isSubscriber]);
 
   const isLimitReached = !isSubscriber && dailyCount >= DAILY_LIMIT;
-
-  const handleSelectEngine = (eng: Engine) => {
-    if (eng === "openai" && !isSubscriber) {
-      setShowProUpgradeModal(true);
-      return;
-    }
-    setEngine(eng);
-  };
 
   const startTranscription = useCallback(
     async (file: File | null, link: string | null, language: string, selectedEngine: Engine) => {
@@ -101,10 +87,9 @@ export default function Dropzone() {
 
       // ── 1. FILE TRANSCRIPTION ──
       if (file) {
-        // PRO TIER: OpenAI Whisper Cloud AI
         if (selectedEngine === "openai" && isSubscriber) {
           try {
-            setStatusText("Transcribing speech with OpenAI Whisper (Cloud AI)…");
+            setStatusText("Transcribing speech…");
 
             const formData = new FormData();
             formData.append("file", file);
@@ -129,10 +114,10 @@ export default function Dropzone() {
             }
 
             const errorData = await res.json().catch(() => ({}));
-            console.warn("OpenAI API transcription error, falling back to 100% Local Model:", errorData);
+            console.warn("Server transcription error, using client engine:", errorData);
 
-            // Seamless fallback to Local Whisper
-            setStatusText("Switching to 100% Local Whisper AI (Device)…");
+            // Seamless fallback to local transcription
+            setStatusText("Transcribing speech…");
             const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
             setStatusText("Saving transcript…");
@@ -165,13 +150,13 @@ export default function Dropzone() {
           }
         }
 
-        // FREE TIER / LOCAL: 100% Local On-Device Whisper AI
+        // Standard transcription
         try {
           const authHeaders: Record<string, string> = session?.access_token
             ? { Authorization: `Bearer ${session.access_token}` }
             : {};
 
-          setStatusText("Running 100% Local Whisper AI on your device (Free & Private)…");
+          setStatusText("Transcribing audio…");
           const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
           setStatusText("Saving transcript…");
@@ -197,7 +182,7 @@ export default function Dropzone() {
           setError(
             localErr instanceof Error
               ? localErr.message
-              : "Local transcription error. Please try another audio file."
+              : "Transcription error. Please try another audio file."
           );
           setUploading(false);
         }
@@ -210,7 +195,7 @@ export default function Dropzone() {
             ? { Authorization: `Bearer ${session.access_token}` }
             : {};
 
-          setStatusText("Fetching and analyzing media audio with AI…");
+          setStatusText("Transcribing audio…");
           const res = await fetch("/api/transcribe-link", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...authHeaders },
@@ -325,79 +310,6 @@ export default function Dropzone() {
                     </button>
                   </div>
 
-                  {/* AI Engine Selection */}
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="font-pt-narrow font-bold text-[15px] text-ink">
-                        🤖 AI Transcription Engine:
-                      </label>
-                      {!isSubscriber && (
-                        <span className="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full font-pt-narrow">
-                          👑 Pro unlocks OpenAI Whisper
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {/* 100% Local AI (Free for all) */}
-                      <button
-                        type="button"
-                        onClick={() => handleSelectEngine("local")}
-                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer ${
-                          engine === "local"
-                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
-                            : "bg-white text-ink hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1.5 font-pt-narrow font-bold text-[15px]">
-                          <span>🔒 100% Local AI</span>
-                          <span
-                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                              engine === "local" ? "bg-[#FFE500] text-ink" : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            Free
-                          </span>
-                        </div>
-                        <p
-                          className={`text-[12px] font-pt-narrow mt-0.5 ${
-                            engine === "local" ? "text-white/80" : "text-text-gray"
-                          }`}
-                        >
-                          100% private, on-device Whisper model
-                        </p>
-                      </button>
-
-                      {/* OpenAI Whisper Cloud AI (Pro Feature) */}
-                      <button
-                        type="button"
-                        onClick={() => handleSelectEngine("openai")}
-                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer relative ${
-                          engine === "openai"
-                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
-                            : "bg-white text-ink hover:bg-gray-50 opacity-90"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1.5 font-pt-narrow font-bold text-[15px]">
-                          <span>⚡ OpenAI Whisper</span>
-                          <span
-                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                              engine === "openai" ? "bg-[#FFE500] text-ink" : "bg-indigo text-white"
-                            }`}
-                          >
-                            👑 PRO
-                          </span>
-                        </div>
-                        <p
-                          className={`text-[12px] font-pt-narrow mt-0.5 ${
-                            engine === "openai" ? "text-white/80" : "text-text-gray"
-                          }`}
-                        >
-                          Highest accuracy & fast cloud processing
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Language Selection Step */}
                   <div className="mb-6">
                     <label
@@ -441,7 +353,7 @@ export default function Dropzone() {
                       }
                       className="btn-neo flex-1 justify-center py-3.5 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 cursor-pointer shadow-[4px_4px_0_#171717]"
                     >
-                      ⚡ Transcribe with {engine === "openai" ? "OpenAI Whisper" : "Local AI"}
+                      ⚡ Start Transcribing
                     </button>
                     <button
                       type="button"
@@ -463,9 +375,8 @@ export default function Dropzone() {
                     Transcribing in{" "}
                     <span className="font-bold text-ink">
                       {SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "selected language"}
-                    </span>{" "}
-                    ({engine === "openai" ? "OpenAI Whisper Cloud AI" : "100% Local On-Device AI"}
-                    )…
+                    </span>
+                    …
                   </p>
                 </div>
               )}
@@ -641,40 +552,7 @@ export default function Dropzone() {
         </>
       )}
 
-      {/* PRO ONLY UPGRADE MODAL */}
-      {showProUpgradeModal && (
-        <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-2 border-ink rounded-[24px] p-6 sm:p-8 max-w-md w-full text-center shadow-[8px_8px_0_#171717] animate-in fade-in zoom-in duration-200">
-            <div className="text-4xl mb-2">👑</div>
-            <h3 className="font-pt-narrow font-bold text-[26px] text-ink mb-2">
-              OpenAI Whisper is a Pro Feature
-            </h3>
-            <p className="font-pt-narrow text-[15px] text-text-gray mb-6 leading-relaxed">
-              OpenAI Whisper Cloud AI provides ultra-fast cloud processing and 99%+ speech recognition. Free users can transcribe 7 videos daily using our <strong>100% Local On-Device AI</strong>.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowProUpgradeModal(false);
-                  const el = document.getElementById("pricing");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="btn-neo flex-1 justify-center py-3 text-[17px] bg-[#FFE500]"
-              >
-                ⚡ Upgrade to Pro
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowProUpgradeModal(false)}
-                className="btn-neo-white py-3 px-5 text-[15px] border-ink"
-              >
-                Use Local AI
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {error && (
         <div className="mt-4 p-5 bg-red-50 border-2 border-red-300 rounded-[16px] max-w-lg text-center shadow-[3px_3px_0_#171717]">

@@ -15,7 +15,7 @@ let transcriberPromise: Promise<unknown> | null = null;
 
 async function getTranscriber(onProgress?: (msg: string) => void) {
   if (!transcriberPromise) {
-    onProgress?.("Loading 100% Local Whisper AI model (cached in browser)...");
+    onProgress?.("Transcribing audio…");
     const { pipeline, env } = await import("@xenova/transformers");
     env.allowLocalModels = false;
     env.useBrowserCache = true;
@@ -27,9 +27,9 @@ async function getTranscriber(onProgress?: (msg: string) => void) {
     transcriberPromise = pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
       progress_callback: (p: { status: string; file?: string; progress?: number }) => {
         if (p.status === "progress" && p.progress) {
-          onProgress?.(`Downloading local Whisper AI model… ${Math.round(p.progress)}%`);
+          onProgress?.(`Transcribing audio… ${Math.round(p.progress)}%`);
         } else if (p.status === "ready") {
-          onProgress?.("Model ready! Decoding speech on your device…");
+          onProgress?.("Transcribing speech…");
         }
       },
     });
@@ -46,14 +46,14 @@ export async function transcribeFileLocally(
   onProgress?: (msg: string) => void,
   language?: string
 ): Promise<LocalTranscriptionResult> {
-  onProgress?.("Decoding audio track in browser (16kHz mono)…");
+  onProgress?.("Preparing audio…");
   const audioData = await decodeAudioFile(file);
 
-  onProgress?.("Running 100% Local Whisper AI engine…");
+  onProgress?.("Transcribing speech…");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transcriber = (await getTranscriber(onProgress)) as any;
 
-  onProgress?.("Transcribing speech locally on your device…");
+  onProgress?.("Transcribing speech…");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const opts: any = {
