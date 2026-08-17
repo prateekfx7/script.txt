@@ -3,6 +3,8 @@ import { tryAdminAuth } from "@/lib/adminGuard";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 const FLAGS_PATH = path.join(process.cwd(), "flags.json");
 
 function readFlags(): Record<string, unknown> {

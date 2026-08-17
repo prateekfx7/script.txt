@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const auth = await tryAdminAuth(req);
   if (!auth.ok) return auth.response;
