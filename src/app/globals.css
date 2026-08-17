@@ -1,0 +1,174 @@
+/* PT Sans Narrow — local font files */
+@font-face {
+  font-family: 'PT Sans Narrow';
+  src: url('/PTSansNarrow-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PT Sans Narrow';
+  src: url('/PTSansNarrow-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #F5F5F3;
+    --ink: #171717;
+    --indigo: #3222DD;
+    --green: #26A94C;
+    --btn-gray: #DDDDDB;
+    --text-gray: #5B5B58;
+    --text-gray-2: #7A7A76;
+    --font-pt-narrow: 'PT Sans Narrow', sans-serif;
+  }
+
+  html,
+  body,
+  button,
+  input,
+  select,
+  textarea,
+  h1, h2, h3, h4, h5, h6, p, span, a, li {
+    font-family: 'PT Sans Narrow', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Logo exception: VT323 pixel font */
+  .logo, .font-pixel {
+    font-family: var(--font-vt323), monospace !important;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid #3222DD;
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Neo-brutalist button — press-down animation on hover/active */
+  .btn-neo {
+    @apply inline-flex items-center gap-2 font-bold text-[17px] px-[22px] py-[12px]
+           rounded-[10px] border-2 border-ink bg-btn-gray text-ink cursor-pointer
+           shadow-neo-sm;
+    font-family: 'PT Sans Narrow', sans-serif !important;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .btn-neo:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 #171717;
+  }
+  .btn-neo:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 #171717;
+  }
+  .btn-neo-white {
+    @apply btn-neo bg-white;
+  }
+
+  /* PT Sans Narrow utility */
+  .font-pt-narrow {
+    font-family: 'PT Sans Narrow', sans-serif !important;
+  }
+
+  /* Feature & price cards */
+  .card-neo {
+    @apply bg-white border-2 border-ink rounded-neo shadow-neo;
+  }
+
+  /* Section wrapper */
+  .wrap {
+    @apply max-w-[1080px] mx-auto px-8;
+  }
+
+  /* Section padding */
+  .section-pad {
+    @apply py-[88px];
+  }
+
+  /* Eyebrow label */
+  .eyebrow {
+    @apply font-bold text-[15px] tracking-[0.06em] lowercase text-green mb-[14px];
+    font-family: 'PT Sans Narrow', sans-serif !important;
+  }
+
+  /* Section heading */
+  .section-head {
+    @apply text-center max-w-[640px] mx-auto mb-12;
+  }
+
+  /* Dashed dropzone */
+  .dropzone-dashed {
+    border: 2.5px dashed #171717;
+    @apply relative max-w-[600px] mx-auto mt-9 px-5 py-[50px] rounded-2xl text-center;
+    background: rgba(50, 34, 221, 0.02);
+  }
+
+  /* Mode toggle (upload/link) */
+  .mode-toggle {
+    @apply inline-flex mt-[34px] border-2 border-ink rounded-[12px] overflow-hidden shadow-neo-sm bg-white;
+  }
+  .mode-toggle-btn {
+    @apply font-bold text-[16px] px-[22px] py-3 border-none cursor-pointer
+           flex items-center gap-[7px];
+    font-family: 'PT Sans Narrow', sans-serif !important;
+  }
+  .mode-toggle-btn.active {
+    @apply bg-white text-ink;
+  }
+  .mode-toggle-btn:not(.active) {
+    background: #ECECEA;
+    @apply text-text-gray-2;
+  }
+
+  /* Step circle */
+  .step-circle {
+    @apply flex-shrink-0 w-[34px] h-[34px] rounded-full border-2 border-indigo
+           text-indigo flex items-center justify-center font-bold text-[16px];
+    font-family: 'PT Sans Narrow', sans-serif !important;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hard offset shadows (not blurred) */
+  .shadow-neo {
+    box-shadow: 4px 4px 0 #171717;
+  }
+  .shadow-neo-sm {
+    box-shadow: 3px 3px 0 #171717;
+  }
+  .shadow-neo-lg {
+    box-shadow: 5px 5px 0 #171717;
+  }
+}

@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Job {
+  id         String      @id @default(cuid())
+  fileName   String
+  fileUrl    String
+  sourceType String      // "upload" | "link"
+  status     String      @default("pending") // pending|processing|done|failed
+  errorMsg   String?
+  createdAt  DateTime    @default(now())
+  transcript Transcript?
+}
+
+model Transcript {
+  id       String @id @default(cuid())
+  jobId    String @unique
+  text     String
+  segments Json   // [{ start: number, end: number, text: string }]
+  job      Job    @relation(fields: [jobId], references: [id])
+}
+
+model UserCredit {
+  id        String   @id @default(cuid())
+  userId    String   @unique   // Supabase auth user ID
+  credits   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
