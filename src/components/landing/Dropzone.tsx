@@ -559,16 +559,6 @@ export default function Dropzone() {
           <div className="text-2xl mb-1.5">⚠️</div>
           <p className="text-[14px] text-red-700 font-pt-narrow font-bold leading-relaxed">{error}</p>
           <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
-            {error.includes("Instagram") && (
-              <a
-                href="https://snapinsta.app"
-                target="_blank"
-                rel="noreferrer"
-                className="btn-neo text-[13px] px-3.5 py-1.5 bg-[#FFE500] text-ink"
-              >
-                📥 1-Click Reel Downloader
-              </a>
-            )}
             <button
               type="button"
               onClick={() => {
