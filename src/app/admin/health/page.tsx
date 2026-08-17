@@ -17,8 +17,8 @@ interface HealthData {
 const SERVICES: { key: string; label: string; desc: string }[] = [
   { key: "database", label: "Database", desc: "PostgreSQL via Prisma" },
   { key: "supabase", label: "Supabase Auth", desc: "Service role key + admin API" },
-  { key: "inngest", label: "Inngest", desc: "Local dev server at :8288" },
-  { key: "groq", label: "Groq API", desc: "Whisper transcription endpoint" },
+  { key: "inngest", label: "Inngest", desc: "Background job queue" },
+  { key: "whisper", label: "OpenAI Whisper API", desc: "Whisper speech transcription endpoint" },
   { key: "flags", label: "Feature Flags", desc: "flags.json read access" },
 ];
 
@@ -32,11 +32,16 @@ export default function AdminHealthPage() {
     setLoading(true);
     fetch("/api/admin/health", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => { check(); }, [session]);
+  useEffect(() => {
+    check();
+  }, [session]);
 
   const fmtTime = (d: string) =>
     new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -53,7 +58,18 @@ export default function AdminHealthPage() {
         <button
           onClick={check}
           disabled={loading}
-          style={{ padding: "7px 16px", background: "#171717", border: "none", borderRadius: 6, color: "#fff", fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: loading ? 0.6 : 1 }}
+          style={{
+            padding: "7px 16px",
+            background: "#171717",
+            border: "none",
+            borderRadius: 6,
+            color: "#fff",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontFamily: "inherit",
+            opacity: loading ? 0.6 : 1,
+          }}
         >
           {loading ? "Checking…" : "Recheck"}
         </button>
@@ -81,7 +97,10 @@ export default function AdminHealthPage() {
                 {/* Status dot */}
                 <div
                   style={{
-                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    flexShrink: 0,
                     background: !result ? "#e5e5e5" : ok ? "#26A94C" : "#e53e3e",
                   }}
                 />

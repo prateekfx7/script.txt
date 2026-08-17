@@ -46,7 +46,7 @@ export default function AboutPage() {
             <strong className="text-ink">scribe.txt</strong> is one of those tools — drop in a video, get a clean transcript in seconds, no friction.
           </p>
           <p>
-            i built this because transcription tools were either slow, ugly, or absurdly expensive. so i made my own using groq's whisper api, next.js, and a lot of coffee.
+            i built this because transcription tools were either slow, ugly, or absurdly expensive. so i made my own using OpenAI's Whisper AI, Next.js, and a lot of coffee.
           </p>
           <p>
             when i'm not shipping stuff, i'm probably on instagram posting whatever or doom-scrolling github.

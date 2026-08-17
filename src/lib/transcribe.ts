@@ -1,10 +1,7 @@
 /**
  * lib/transcribe.ts
  *
- * Whisper API abstraction. Reads TRANSCRIBE_API_BASE_URL from env —
- * defaults to OpenAI's endpoint or Groq's free endpoint.
- *
- * Includes built-in 429 Rate Limit detection and optional secondary fallback.
+ * OpenAI Whisper API abstraction. Reads OPENAI_API_KEY and TRANSCRIBE_API_BASE_URL from env.
  */
 
 import OpenAI from "openai";
@@ -29,8 +26,7 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribe a file buffer using the Whisper API.
- * Handles rate limit (429) detection with friendly error messages.
+ * Transcribe a file buffer using the OpenAI Whisper API.
  */
 export async function transcribeBuffer(
   buffer: Buffer,
@@ -39,7 +35,7 @@ export async function transcribeBuffer(
   language?: string
 ): Promise<TranscriptionResult> {
   const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
-  const model = process.env.WHISPER_MODEL ?? "whisper-large-v3";
+  const model = process.env.WHISPER_MODEL ?? "whisper-1";
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,7 +68,6 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
-    // Detect 429 Rate Limit Exceeded
     const errObj = err as { status?: number; message?: string; code?: string };
     const isRateLimit =
       errObj.status === 429 ||
@@ -82,7 +77,7 @@ export async function transcribeBuffer(
 
     if (isRateLimit) {
       throw new Error(
-        "Rate limit reached on free Groq API (7,200s/day or 20 req/min limit). Please wait a minute and try again, or add a secondary key in .env.local."
+        "OpenAI Whisper API rate limit / quota exceeded. Please check your OpenAI API key and billing credits."
       );
     }
 
