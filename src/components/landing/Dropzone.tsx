@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/useAuth";
 import { getDailyUsageCount, incrementDailyUsage, DAILY_LIMIT } from "@/lib/usageTracker";
+import { useAuth } from "@/lib/useAuth";
 
 type Mode = "upload" | "link";
 
@@ -80,52 +80,46 @@ export default function Dropzone() {
       setError(null);
       setUploading(true);
 
-      // ── FILE TRANSCRIPTION (100% SERVER-SIDE OPENAI WHISPER) ──
+      // ── 1. FILE TRANSCRIPTION ──
       if (file) {
         try {
-          setStatusText("Uploading to Whisper AI…");
+          setStatusText("Transcribing speech with OpenAI Whisper…");
 
-          // For files <= 20MB, direct API processing
-          if (file.size <= 20 * 1024 * 1024) {
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("language", language);
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("language", language);
 
-            setStatusText("Transcribing speech with OpenAI Whisper…");
-            const res = await fetch("/api/transcribe-file", {
-              method: "POST",
-              body: formData,
-            });
+          const res = await fetch("/api/transcribe-file", {
+            method: "POST",
+            body: formData,
+          });
 
+          if (res.ok) {
             const data = await res.json();
-            if (res.ok && data.jobId) {
-              const updatedCount = incrementDailyUsage();
-              setDailyCount(updatedCount);
-              router.push(`/transcript/${data.jobId}`);
-              return;
-            }
-
-            if (!res.ok) {
-              throw new Error(data.error || "Server transcription failed.");
-            }
+            const updatedCount = incrementDailyUsage();
+            setDailyCount(updatedCount);
+            router.push(`/transcript/${data.jobId}`);
+            return;
           }
 
-          // For larger files: upload to Supabase Storage and process via server background queue
-          setStatusText("Uploading large file to secure storage…");
+          const errorData = await res.json().catch(() => ({}));
+
+          // Fallback: storage pipeline for larger files
+          setStatusText("Uploading media to processing server…");
           const urlRes = await fetch("/api/upload-url", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fileName: file.name, contentType: file.type || "video/mp4" }),
           });
 
-          if (!urlRes.ok) throw new Error("Failed to initialize file upload.");
+          if (!urlRes.ok) throw new Error(errorData.error || "Failed to process audio.");
           const { uploadUrl, publicUrl } = await urlRes.json();
 
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.addEventListener("load", () => {
               if (xhr.status >= 200 && xhr.status < 300) resolve();
-              else reject(new Error(`Storage upload failed (HTTP ${xhr.status}).`));
+              else reject(new Error(`Upload failed (HTTP ${xhr.status}).`));
             });
             xhr.addEventListener("error", () => reject(new Error("Network error during upload.")));
             xhr.open("PUT", uploadUrl);
@@ -133,23 +127,17 @@ export default function Dropzone() {
             xhr.send(file);
           });
 
-          setStatusText("Processing transcription with Whisper AI…");
           const jobRes = await fetch("/api/jobs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileName: file.name,
-              fileUrl: publicUrl,
-              sourceType: "upload",
-              language,
-            }),
+            body: JSON.stringify({ fileName: file.name, fileUrl: publicUrl, sourceType: "upload" }),
           });
 
           if (!jobRes.ok) throw new Error("Failed to create transcription job.");
-          const { jobId } = await jobRes.json();
-
           const updatedCount = incrementDailyUsage();
           setDailyCount(updatedCount);
+
+          const { jobId } = await jobRes.json();
           router.push(`/jobs/${jobId}`);
         } catch (err: unknown) {
           setError(
@@ -159,10 +147,10 @@ export default function Dropzone() {
         }
       }
 
-      // ── LINK TRANSCRIPTION (SERVER-SIDE) ──
+      // ── 2. LINK TRANSCRIPTION ──
       else if (link) {
         try {
-          setStatusText("Fetching media and transcribing with Whisper AI…");
+          setStatusText("Fetching and analyzing link audio…");
           const res = await fetch("/api/transcribe-link", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -234,7 +222,7 @@ export default function Dropzone() {
                 const el = document.getElementById("pricing");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
               }}
-              className="btn-neo text-[17px] font-pt-narrow font-bold py-3 px-6 bg-[#FFE500] cursor-pointer"
+              className="btn-neo text-[17px] font-pt-narrow font-bold py-3 px-6 bg-[#FFE500]"
             >
               ⚡ Upgrade to Pro (Unlimited)
             </button>
@@ -271,7 +259,7 @@ export default function Dropzone() {
                     <button
                       type="button"
                       onClick={resetSelection}
-                      className="text-text-gray hover:text-ink font-bold font-pt-narrow text-[13px] underline hover:no-underline shrink-0 cursor-pointer"
+                      className="text-text-gray hover:text-ink font-bold font-pt-narrow text-[13px] underline hover:no-underline shrink-0"
                     >
                       Change
                     </button>
@@ -344,7 +332,7 @@ export default function Dropzone() {
                     <span className="font-bold text-ink">
                       {SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "selected language"}
                     </span>{" "}
-                    with OpenAI Whisper AI…
+                    with OpenAI Whisper…
                   </p>
                 </div>
               )}
@@ -526,7 +514,7 @@ export default function Dropzone() {
           <button
             type="button"
             onClick={resetSelection}
-            className="btn-neo mt-3 text-xs px-4 py-2 bg-white"
+            className="btn-neo mt-3 text-xs px-4 py-2 bg-white cursor-pointer"
           >
             📂 Try Again
           </button>

@@ -1,7 +1,8 @@
 /**
  * lib/transcribe.ts
  *
- * OpenAI Whisper API abstraction. Reads OPENAI_API_KEY and TRANSCRIBE_API_BASE_URL from env.
+ * Whisper API abstraction using official OpenAI Whisper API.
+ * Reads OPENAI_API_KEY and TRANSCRIBE_API_BASE_URL from env.
  */
 
 import OpenAI from "openai";
@@ -26,7 +27,7 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribe a file buffer using the OpenAI Whisper API.
+ * Transcribe a file buffer using OpenAI Whisper API.
  */
 export async function transcribeBuffer(
   buffer: Buffer,
@@ -68,6 +69,7 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
+    // Detect 429 Rate Limit Exceeded
     const errObj = err as { status?: number; message?: string; code?: string };
     const isRateLimit =
       errObj.status === 429 ||
@@ -77,7 +79,7 @@ export async function transcribeBuffer(
 
     if (isRateLimit) {
       throw new Error(
-        "OpenAI Whisper API rate limit / quota exceeded. Please check your OpenAI API key and billing credits."
+        "OpenAI API rate limit or quota reached. Please check your OpenAI account billing and API key."
       );
     }
 
