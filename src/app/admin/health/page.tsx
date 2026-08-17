@@ -18,7 +18,7 @@ const SERVICES: { key: string; label: string; desc: string }[] = [
   { key: "database", label: "Database", desc: "PostgreSQL via Prisma" },
   { key: "supabase", label: "Supabase Auth", desc: "Service role key + admin API" },
   { key: "inngest", label: "Inngest", desc: "Local dev server at :8288" },
-  { key: "openai", label: "OpenAI Whisper API", desc: "Whisper transcription endpoint" },
+  { key: "localAi", label: "100% Local Whisper AI Engine", desc: "Browser & embedded transformer runtime" },
   { key: "flags", label: "Feature Flags", desc: "flags.json read access" },
 ];
 

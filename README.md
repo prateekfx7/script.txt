@@ -1,7 +1,7 @@
 # 🎙️ Scribe.txt — AI Speech-to-Text Transcription Platform
 
 > **Turn any video, podcast, or audio clip into clean, timestamped transcripts in seconds.**  
-> Powered by **100% Local On-Device Whisper AI** for free private transcriptions and **Official OpenAI Whisper Cloud AI (`whisper-1`)** for Pro members.
+> Powered by **100% Local On-Device Whisper AI** — zero cloud costs, 100% private, on-device speech-to-text.
 
 ---
 
@@ -10,10 +10,7 @@
 - **🔒 100% Local On-Device Whisper AI**:
   - Transcribe audio/video directly in the browser via WebAssembly & WebAudio.
   - **Zero API costs & 100% Privacy** — audio data never leaves the user's computer.
-  - 7 free transcriptions daily for all users.
-- **⚡ OpenAI Whisper Cloud AI (Pro Feature)**:
-  - Powered by official OpenAI `whisper-1` model with priority queue and 99%+ accuracy.
-  - Unlimited daily transcriptions for active Pro & Team subscribers.
+  - Unlimited transcriptions for subscribers, 7 free daily for guests.
 - **🌐 99+ Languages & Auto-Detection**:
   - Supports English, Hindi, Spanish, French, German, Japanese, Chinese, Russian, Arabic, and dozens of regional languages.
 - **🔗 Paste Links & Direct Uploads**:
@@ -24,8 +21,9 @@
 - **💳 UPI Payments & Admin Manual Review**:
   - Native Indian UPI payments via GPay, PhonePe, Paytm, BHIM, or QR Code.
   - Secure 12-digit UTR bank verification queue in the Admin Dashboard to eliminate fraudulent submissions.
-- **🔐 Authentication**:
+- **🔐 Authentication & User Dashboard**:
   - Email/Password login and 1-click **Google OAuth** authentication with Supabase.
+  - Full user dashboard (`/dashboard`) with transcript search, star/delete, stats, and billing history.
 - **🛠️ Comprehensive Admin Suite**:
   - Admin Overview (`/admin/overview`), Subscriptions & UPI Queue (`/admin/subscriptions`), Jobs Monitoring (`/admin/jobs`), and System Health Checks (`/admin/health`).
 
@@ -37,9 +35,7 @@
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: Neo-Brutalism design system with Tailwind CSS & custom CSS variables
 - **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL database, Auth, Storage) & [Prisma ORM](https://www.prisma.io/)
-- **AI Engines**:
-  - **Cloud**: [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) (`whisper-1`)
-  - **Local**: [@xenova/transformers](https://huggingface.co/docs/transformers.js) (`Xenova/whisper-tiny` multilingual)
+- **AI Engine**: 100% Local Whisper Speech-to-Text via [@xenova/transformers](https://huggingface.co/docs/transformers.js) (`Xenova/whisper-tiny` multilingual)
 - **Background Jobs**: [Inngest](https://www.inngest.com/)
 
 ---

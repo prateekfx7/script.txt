@@ -8,7 +8,6 @@ import { getDailyUsageCount, incrementDailyUsage, DAILY_LIMIT } from "@/lib/usag
 import { useAuth } from "@/lib/useAuth";
 
 type Mode = "upload" | "link";
-type Engine = "openai" | "local";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "auto", name: "Auto Detect (99+ Languages)", flag: "🌐" },
@@ -62,9 +61,6 @@ export default function Dropzone() {
   const [mode, setMode] = useState<Mode>("upload");
 
   const isSubscriber = user?.user_metadata?.subscription?.status === "active";
-  const [engine, setEngine] = useState<Engine>(isSubscriber ? "openai" : "local");
-  const [showProUpgradeModal, setShowProUpgradeModal] = useState(false);
-
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(null);
@@ -76,102 +72,24 @@ export default function Dropzone() {
 
   useEffect(() => {
     setDailyCount(getDailyUsageCount());
-    if (isSubscriber) {
-      setEngine("openai");
-    } else {
-      setEngine("local");
-    }
-  }, [isSubscriber]);
+  }, []);
 
   const isLimitReached = !isSubscriber && dailyCount >= DAILY_LIMIT;
 
-  const handleSelectEngine = (eng: Engine) => {
-    if (eng === "openai" && !isSubscriber) {
-      setShowProUpgradeModal(true);
-      return;
-    }
-    setEngine(eng);
-  };
-
   const startTranscription = useCallback(
-    async (file: File | null, link: string | null, language: string, selectedEngine: Engine) => {
+    async (file: File | null, link: string | null, language: string) => {
       if (isLimitReached) return;
       setError(null);
       setUploading(true);
 
-      // ── 1. FILE TRANSCRIPTION ──
+      const authHeaders: Record<string, string> = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+
+      // ── 1. FILE TRANSCRIPTION (100% Local On-Device Whisper AI) ──
       if (file) {
-        // PRO TIER: OpenAI Whisper Cloud AI
-        if (selectedEngine === "openai" && isSubscriber) {
-          try {
-            setStatusText("Transcribing speech with OpenAI Whisper (Cloud AI)…");
-
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("language", language);
-
-            const authHeaders: Record<string, string> = session?.access_token
-              ? { Authorization: `Bearer ${session.access_token}` }
-              : {};
-
-            const res = await fetch("/api/transcribe-file", {
-              method: "POST",
-              headers: authHeaders,
-              body: formData,
-            });
-
-            if (res.ok) {
-              const data = await res.json();
-              const updatedCount = incrementDailyUsage();
-              setDailyCount(updatedCount);
-              router.push(`/transcript/${data.jobId}`);
-              return;
-            }
-
-            const errorData = await res.json().catch(() => ({}));
-            console.warn("OpenAI API transcription error, falling back to 100% Local Model:", errorData);
-
-            // Seamless fallback to Local Whisper
-            setStatusText("Switching to 100% Local Whisper AI (Device)…");
-            const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
-
-            setStatusText("Saving transcript…");
-            const saveRes = await fetch("/api/jobs/save-local", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...authHeaders },
-              body: JSON.stringify({
-                fileName: file.name,
-                text: result.text,
-                segments: result.segments,
-                language: language !== "auto" ? language : null,
-                engine: "local",
-              }),
-            });
-
-            if (!saveRes.ok) throw new Error(errorData.error || "Failed to save transcript");
-
-            const updatedCount = incrementDailyUsage();
-            setDailyCount(updatedCount);
-
-            const { jobId } = await saveRes.json();
-            router.push(`/transcript/${jobId}`);
-            return;
-          } catch (err: unknown) {
-            setError(
-              err instanceof Error ? err.message : "Something went wrong during transcription. Please try again."
-            );
-            setUploading(false);
-            return;
-          }
-        }
-
-        // FREE TIER / LOCAL: 100% Local On-Device Whisper AI
         try {
-          const authHeaders: Record<string, string> = session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : {};
-
-          setStatusText("Running 100% Local Whisper AI on your device (Free & Private)…");
+          setStatusText("Running 100% Local Whisper AI on your device…");
           const result = await transcribeFileLocally(file, (msg) => setStatusText(msg), language);
 
           setStatusText("Saving transcript…");
@@ -206,10 +124,6 @@ export default function Dropzone() {
       // ── 2. LINK TRANSCRIPTION ──
       else if (link) {
         try {
-          const authHeaders: Record<string, string> = session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : {};
-
           setStatusText("Fetching and analyzing media audio with AI…");
           const res = await fetch("/api/transcribe-link", {
             method: "POST",
@@ -217,6 +131,7 @@ export default function Dropzone() {
             body: JSON.stringify({ url: link, language }),
           });
           const data = await res.json();
+
           if (res.ok && data.jobId) {
             const updatedCount = incrementDailyUsage();
             setDailyCount(updatedCount);
@@ -231,7 +146,7 @@ export default function Dropzone() {
         }
       }
     },
-    [router, isLimitReached, isSubscriber, session]
+    [router, isLimitReached, session]
   );
 
   const onFileAccepted = useCallback((file: File) => {
@@ -274,7 +189,7 @@ export default function Dropzone() {
             You&apos;ve used all 7 free transcripts for today!
           </h3>
           <p className="font-pt-narrow text-[18px] text-text-gray mb-6 leading-relaxed max-w-[45ch] mx-auto">
-            Come back tomorrow for 7 more free transcripts, or upgrade to Pro for unlimited daily transcriptions and OpenAI Whisper Cloud AI.
+            Come back tomorrow for 7 more free transcripts, or upgrade to Pro for unlimited daily transcriptions.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -293,7 +208,7 @@ export default function Dropzone() {
         </div>
       ) : (
         <>
-          {/* STEP 2: Language Selection & AI Engine Panel (Shown AFTER upload/link) */}
+          {/* STEP 2: Language Selection Panel (Shown AFTER upload/link) */}
           {hasMediaSelected ? (
             <div className="w-full bg-white border-2 border-ink rounded-[24px] p-6 sm:p-8 shadow-[6px_6px_0_#171717] animate-in fade-in zoom-in-95 duration-200">
               {!uploading ? (
@@ -312,7 +227,7 @@ export default function Dropzone() {
                           <span className="text-[12px] font-bold font-pt-narrow text-indigo bg-indigo/10 px-2 py-0.5 rounded-[6px]">
                             {selectedFile ? formatFileSize(selectedFile.size) : "Online Media Link"}
                           </span>
-                          <span className="text-[12px] text-text-gray font-pt-narrow">Ready to transcribe</span>
+                          <span className="text-[12px] text-text-gray font-pt-narrow">100% Local On-Device AI</span>
                         </div>
                       </div>
                     </div>
@@ -325,86 +240,13 @@ export default function Dropzone() {
                     </button>
                   </div>
 
-                  {/* AI Engine Selection */}
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="font-pt-narrow font-bold text-[15px] text-ink">
-                        🤖 AI Transcription Engine:
-                      </label>
-                      {!isSubscriber && (
-                        <span className="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full font-pt-narrow">
-                          👑 Pro unlocks OpenAI Whisper
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {/* 100% Local AI (Free for all) */}
-                      <button
-                        type="button"
-                        onClick={() => handleSelectEngine("local")}
-                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer ${
-                          engine === "local"
-                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
-                            : "bg-white text-ink hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1.5 font-pt-narrow font-bold text-[15px]">
-                          <span>🔒 100% Local AI</span>
-                          <span
-                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                              engine === "local" ? "bg-[#FFE500] text-ink" : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            Free
-                          </span>
-                        </div>
-                        <p
-                          className={`text-[12px] font-pt-narrow mt-0.5 ${
-                            engine === "local" ? "text-white/80" : "text-text-gray"
-                          }`}
-                        >
-                          100% private, on-device Whisper model
-                        </p>
-                      </button>
-
-                      {/* OpenAI Whisper Cloud AI (Pro Feature) */}
-                      <button
-                        type="button"
-                        onClick={() => handleSelectEngine("openai")}
-                        className={`p-3 rounded-[12px] border-2 border-ink text-left transition-all cursor-pointer relative ${
-                          engine === "openai"
-                            ? "bg-indigo text-white shadow-[2px_2px_0_#171717]"
-                            : "bg-white text-ink hover:bg-gray-50 opacity-90"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1.5 font-pt-narrow font-bold text-[15px]">
-                          <span>⚡ OpenAI Whisper</span>
-                          <span
-                            className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                              engine === "openai" ? "bg-[#FFE500] text-ink" : "bg-indigo text-white"
-                            }`}
-                          >
-                            👑 PRO
-                          </span>
-                        </div>
-                        <p
-                          className={`text-[12px] font-pt-narrow mt-0.5 ${
-                            engine === "openai" ? "text-white/80" : "text-text-gray"
-                          }`}
-                        >
-                          Highest accuracy & fast cloud processing
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Language Selection Step */}
                   <div className="mb-6">
                     <label
                       htmlFor="modal-language-select"
                       className="block font-pt-narrow font-bold text-[15px] text-ink mb-1.5"
                     >
-                      🗣️ Spoken Language:
+                      🗣️ Select Audio Language:
                     </label>
 
                     <div className="relative">
@@ -437,11 +279,11 @@ export default function Dropzone() {
                     <button
                       type="button"
                       onClick={() =>
-                        startTranscription(selectedFile, selectedLink, selectedLanguage, engine)
+                        startTranscription(selectedFile, selectedLink, selectedLanguage)
                       }
                       className="btn-neo flex-1 justify-center py-3.5 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 cursor-pointer shadow-[4px_4px_0_#171717]"
                     >
-                      ⚡ Transcribe with {engine === "openai" ? "OpenAI Whisper" : "Local AI"}
+                      ⚡ Transcribe with Local AI
                     </button>
                     <button
                       type="button"
@@ -460,12 +302,7 @@ export default function Dropzone() {
                     {statusText}
                   </div>
                   <p className="text-[14px] text-text-gray font-pt-narrow">
-                    Transcribing in{" "}
-                    <span className="font-bold text-ink">
-                      {SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage)?.name || "selected language"}
-                    </span>{" "}
-                    ({engine === "openai" ? "OpenAI Whisper Cloud AI" : "100% Local On-Device AI"}
-                    )…
+                    Transcribing with 100% Local Whisper AI on your device (Free & Private)…
                   </p>
                 </div>
               )}
@@ -478,155 +315,86 @@ export default function Dropzone() {
                 <button
                   id="mode-upload-btn"
                   className={`mode-toggle-btn ${mode === "upload" ? "active" : ""}`}
-                  onClick={() => setMode("upload")}
+                  onClick={() => {
+                    setMode("upload");
+                    setError(null);
+                  }}
+                  type="button"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 3v12" />
-                    <path d="M7 8l5-5 5 5" />
-                    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                   upload file
                 </button>
                 <button
                   id="mode-link-btn"
                   className={`mode-toggle-btn ${mode === "link" ? "active" : ""}`}
-                  onClick={() => setMode("link")}
+                  onClick={() => {
+                    setMode("link");
+                    setError(null);
+                  }}
+                  type="button"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.07 0l1.42-1.41a5 5 0 0 0-7.07-7.07L10 6" />
-                    <path d="M14 11a5 5 0 0 0-7.07 0L5.5 12.42a5 5 0 0 0 7.07 7.07L14 18" />
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                   </svg>
                   paste link
                 </button>
               </div>
 
-              {/* Upload mode */}
+              {/* Upload Mode */}
               {mode === "upload" && (
                 <div
                   {...getRootProps()}
-                  className={`dropzone-dashed w-full flex flex-col items-center justify-center text-center cursor-pointer transition-colors duration-150 relative ${
-                    isDragActive ? "bg-indigo/5 border-indigo" : ""
+                  id="dropzone-area"
+                  className={`dropzone-dashed w-full cursor-pointer transition-all duration-150 ${
+                    isDragActive
+                      ? "border-indigo bg-indigo/5 scale-[1.01]"
+                      : "hover:border-indigo/60 hover:bg-white/60"
                   }`}
                 >
                   <input {...getInputProps()} id="file-input" />
-                  <div className="flex flex-col items-center justify-center text-center w-full">
-                    <div className="text-indigo mb-3 flex items-center justify-center">
-                      <svg
-                        className="w-[38px] h-[38px]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-[14px] bg-indigo/10 border-2 border-indigo flex items-center justify-center mb-3">
+                      <svg className="w-6 h-6 text-indigo" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                         <polyline points="17 8 12 3 7 8" />
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
                     </div>
-                    <div className="text-[16px] text-ink mb-4 font-bold">
-                      {isDragActive ? "drop it!" : "drop your video or audio here, or"}
-                    </div>
-                    <button
-                      id="browse-file-btn"
-                      type="button"
-                      className="btn-neo-white pointer-events-none"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <path d="M14 2v6h6" />
-                        <path d="M12 18v-5M9.5 15.5L12 13l2.5 2.5" />
-                      </svg>
-                      browse file
-                    </button>
-                    <div className="text-[13px] text-text-gray-2 mt-[14px]">
-                      mp4, mov, mp3, wav, m4a up to 500MB
-                    </div>
-
-                    {/* Decorative badges */}
-                    <div
-                      className="absolute left-[14px] -bottom-4 border-2 border-indigo text-indigo rounded-[6px] px-[6px] py-[2px] font-body font-extrabold text-[12px] bg-bg font-pixel select-none"
-                      style={{ fontFamily: "var(--font-vt323)" }}
-                    >
-                      CC
-                    </div>
-                    <div className="absolute right-5 -bottom-[18px] text-green select-none">
-                      <svg
-                        className="w-[26px] h-[26px]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M9 18V5l12-2v13" />
-                        <circle cx="6" cy="18" r="3" />
-                        <circle cx="18" cy="16" r="3" />
-                      </svg>
+                    <p className="font-pt-narrow font-bold text-[19px] text-ink mb-1">
+                      {isDragActive ? "drop your video or audio here" : "drop video or audio here"}
+                    </p>
+                    <p className="text-[14px] text-text-gray mb-3 font-pt-narrow">
+                      or <span className="text-indigo font-bold underline">browse files</span> from your computer
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 text-[12px] font-pt-narrow text-text-gray-2 bg-white/80 border border-gray-300 rounded-full px-3 py-1">
+                      <span>MP4</span> · <span>MOV</span> · <span>MP3</span> · <span>WAV</span> · <span>M4A</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Link mode */}
+              {/* Link Mode */}
               {mode === "link" && (
-                <div className="dropzone-dashed w-full flex flex-col items-center gap-4">
-                  <div className="text-indigo">
-                    <svg
-                      className="w-[34px] h-[34px]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M10 13a5 5 0 0 0 7.07 0l1.42-1.41a5 5 0 0 0-7.07-7.07L10 6" />
-                      <path d="M14 11a5 5 0 0 0-7.07 0L5.5 12.42a5 5 0 0 0 7.07 7.07L14 18" />
-                    </svg>
-                  </div>
-                  <p className="text-[16px] text-ink font-bold">paste YouTube or Instagram link</p>
-                  <div className="flex w-full max-w-[460px] gap-2">
+                <div className="w-full bg-white border-2 border-ink rounded-[20px] p-5 sm:p-6 shadow-neo-sm">
+                  <div className="flex gap-2 mb-2">
                     <input
-                      id="link-input"
                       type="url"
-                      placeholder="https://www.youtube.com/watch?v=... or Instagram Reel"
+                      id="link-url-input"
+                      placeholder="Paste YouTube or Instagram link…"
                       value={linkInput}
                       onChange={(e) => setLinkInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && onLinkSubmit()}
-                      className="flex-1 border-2 border-ink rounded-[10px] px-4 py-3 text-[15px] font-body bg-white outline-none focus:border-indigo transition-colors"
+                      className="flex-1 border-2 border-ink rounded-[12px] px-4 py-3 text-[16px] font-pt-narrow outline-none focus:border-indigo transition-colors"
                     />
                     <button
-                      id="link-submit-btn"
+                      id="submit-link-btn"
                       onClick={onLinkSubmit}
-                      disabled={!linkInput.trim()}
-                      className="btn-neo disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-neo bg-indigo text-white text-[16px] px-5 py-3"
                     >
                       go
                     </button>
@@ -641,51 +409,9 @@ export default function Dropzone() {
         </>
       )}
 
-      {/* PRO ONLY UPGRADE MODAL */}
-      {showProUpgradeModal && (
-        <div className="fixed inset-0 bg-ink/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-2 border-ink rounded-[24px] p-6 sm:p-8 max-w-md w-full text-center shadow-[8px_8px_0_#171717] animate-in fade-in zoom-in duration-200">
-            <div className="text-4xl mb-2">👑</div>
-            <h3 className="font-pt-narrow font-bold text-[26px] text-ink mb-2">
-              OpenAI Whisper is a Pro Feature
-            </h3>
-            <p className="font-pt-narrow text-[15px] text-text-gray mb-6 leading-relaxed">
-              OpenAI Whisper Cloud AI provides ultra-fast cloud processing and 99%+ speech recognition. Free users can transcribe 7 videos daily using our <strong>100% Local On-Device AI</strong>.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowProUpgradeModal(false);
-                  const el = document.getElementById("pricing");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="btn-neo flex-1 justify-center py-3 text-[17px] bg-[#FFE500]"
-              >
-                ⚡ Upgrade to Pro
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowProUpgradeModal(false)}
-                className="btn-neo-white py-3 px-5 text-[15px] border-ink"
-              >
-                Use Local AI
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-2xl max-w-md text-center">
-          <p className="text-sm text-red-600 font-medium leading-relaxed">{error}</p>
-          <button
-            type="button"
-            onClick={resetSelection}
-            className="btn-neo mt-3 text-xs px-4 py-2 bg-white cursor-pointer"
-          >
-            📂 Try Again
-          </button>
+          <p className="text-red-700 text-sm">{error}</p>
         </div>
       )}
     </div>
