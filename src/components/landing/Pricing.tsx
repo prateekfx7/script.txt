@@ -243,10 +243,10 @@ export default function Pricing() {
               <Checkmark /> 7 Free Transcripts Daily
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> High-Accuracy Speech Recognition
+              <Checkmark /> 🔒 100% Local On-Device Whisper AI
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> YouTube, Instagram & Files
+              <Checkmark /> 100% Private (No data sent to cloud)
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> TXT, SRT & VTT Exports
@@ -287,14 +287,14 @@ export default function Pricing() {
             <li className="flex items-center gap-[10px] font-bold text-[#FFE500]">
               <Checkmark /> Unlimited Transcripts Daily
             </li>
-            <li className="flex items-center gap-[10px]">
-              <Checkmark /> High-Speed Whisper Cloud AI
+            <li className="flex items-center gap-[10px] font-bold text-[#FFE500]">
+              <Checkmark /> ⚡ OpenAI Whisper Cloud AI (whisper-1)
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> 40+ Languages & Auto-Detect
+              <Checkmark /> 99%+ Accuracy & 40+ Languages
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> Priority Processing Queue
+              <Checkmark /> Priority Cloud Queue
             </li>
           </ul>
           <div className="mb-4 text-xs font-pt-narrow bg-white/10 rounded-lg p-2 text-center text-white/90 border border-white/20">
@@ -333,11 +333,11 @@ export default function Pricing() {
             <li className="flex items-center gap-[10px] font-bold text-indigo">
               <Checkmark /> Shared Team Workspaces
             </li>
-            <li className="flex items-center gap-[10px]">
-              <Checkmark /> Unlimited Transcripts Daily
+            <li className="flex items-center gap-[10px] font-bold text-indigo">
+              <Checkmark /> ⚡ OpenAI Whisper Cloud AI
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> Multi-User Access Links
+              <Checkmark /> Unlimited Transcripts Daily
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> Dedicated VIP Support
