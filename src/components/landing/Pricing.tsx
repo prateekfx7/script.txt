@@ -288,13 +288,13 @@ export default function Pricing() {
               <Checkmark /> Unlimited Transcripts Daily
             </li>
             <li className="flex items-center gap-[10px] font-bold text-[#FFE500]">
-              <Checkmark /> ⚡ PrateekAI Ultra Neural Model
+              <Checkmark /> ⚡ OpenAI Whisper Cloud AI (whisper-1)
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> 99%+ Accuracy & 40+ Languages
             </li>
             <li className="flex items-center gap-[10px]">
-              <Checkmark /> Full TXT, SRT & VTT Exports
+              <Checkmark /> Priority Cloud Queue
             </li>
           </ul>
           <div className="mb-4 text-xs font-pt-narrow bg-white/10 rounded-lg p-2 text-center text-white/90 border border-white/20">
@@ -334,7 +334,7 @@ export default function Pricing() {
               <Checkmark /> Shared Team Workspaces
             </li>
             <li className="flex items-center gap-[10px] font-bold text-indigo">
-              <Checkmark /> ⚡ PrateekAI Enterprise Dedicated Model
+              <Checkmark /> ⚡ OpenAI Whisper Cloud AI
             </li>
             <li className="flex items-center gap-[10px]">
               <Checkmark /> Unlimited Transcripts Daily

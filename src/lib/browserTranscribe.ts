@@ -15,18 +15,17 @@ let transcriberPromise: Promise<unknown> | null = null;
 
 async function getTranscriber(onProgress?: (msg: string) => void) {
   if (!transcriberPromise) {
-    onProgress?.("Initializing PrateekAI Model…");
+    onProgress?.("Loading 100% Local Whisper AI model (cached in browser)...");
     const { pipeline, env } = await import("@xenova/transformers");
     env.allowLocalModels = false;
-    env.useBrowserCache = true;
 
-    // Multilingual Whisper tiny model
+    // Use multilingual Whisper model supporting 99+ languages locally
     transcriberPromise = pipeline("automatic-speech-recognition", "Xenova/whisper-tiny", {
       progress_callback: (p: { status: string; file?: string; progress?: number }) => {
-        if (p.status === "progress" && typeof p.progress === "number") {
-          onProgress?.(`Loading PrateekAI Model… ${Math.round(p.progress)}%`);
+        if (p.status === "progress" && p.progress) {
+          onProgress?.(`Downloading local Whisper AI model… ${Math.round(p.progress)}%`);
         } else if (p.status === "ready") {
-          onProgress?.("PrateekAI Engine ready! Analyzing audio…");
+          onProgress?.("Model ready! Decoding speech on your device…");
         }
       },
     });
@@ -35,21 +34,22 @@ async function getTranscriber(onProgress?: (msg: string) => void) {
 }
 
 /**
- * Transcribes any video/audio file locally on the device using PrateekAI Neural Engine.
+ * Transcribes any video/audio file 100% locally on the device using browser WASM/WebAudio.
+ * 0 API keys required, 0 network data transmitted.
  */
 export async function transcribeFileLocally(
   file: File,
   onProgress?: (msg: string) => void,
   language?: string
 ): Promise<LocalTranscriptionResult> {
-  onProgress?.("Extracting audio stream from file…");
+  onProgress?.("Decoding audio track in browser (16kHz mono)…");
   const audioData = await decodeAudioFile(file);
 
-  onProgress?.("Running PrateekAI Model…");
+  onProgress?.("Running 100% Local Whisper AI engine…");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transcriber = (await getTranscriber(onProgress)) as any;
 
-  onProgress?.("Transcribing speech with PrateekAI Model…");
+  onProgress?.("Transcribing speech locally on your device…");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const opts: any = {

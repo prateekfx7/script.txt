@@ -42,12 +42,20 @@ export async function GET(req: NextRequest) {
     results.inngest = { ok: false, latencyMs: 0, error: "Not reachable at :8288" };
   }
 
-  // ── 4. Local Whisper AI Model Engine ─────────────────────────────────────────
+  // ── 4. OpenAI Whisper API ───────────────────────────────────────────────────
   try {
     const t0 = Date.now();
-    results.localAi = { ok: true, latencyMs: Date.now() - t0 };
+    const apiKey = process.env.OPENAI_API_KEY ?? "";
+    const baseUrl = process.env.TRANSCRIBE_API_BASE_URL ?? "https://api.openai.com/v1";
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    results.openai = res.ok
+      ? { ok: true, latencyMs: Date.now() - t0 }
+      : { ok: false, latencyMs: Date.now() - t0, error: `HTTP ${res.status}` };
   } catch (e) {
-    results.localAi = { ok: false, latencyMs: 0, error: String(e) };
+    results.openai = { ok: false, latencyMs: 0, error: String(e) };
   }
 
   // ── 5. flags.json ────────────────────────────────────────────────────────────

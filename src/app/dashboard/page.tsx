@@ -249,8 +249,10 @@ export default function DashboardPage() {
                       <span className="text-[11px] font-pt-narrow text-text-gray bg-gray-100 px-2 py-0.5 rounded">
                         {getLangName(t.language)}
                       </span>
-                      <span className="text-[11px] font-bold font-pt-narrow px-2 py-0.5 rounded bg-[#FFE500]/40 text-ink border border-ink/20">
-                        ⚡ PrateekAI Model
+                      <span className={`text-[11px] font-bold font-pt-narrow px-2 py-0.5 rounded ${
+                        t.engine === "openai" ? "bg-[#FFE500] text-ink" : "bg-green-100 text-green-800"
+                      }`}>
+                        {t.engine === "openai" ? "⚡ OpenAI" : "🔒 Local AI"}
                       </span>
                       <span className="text-[11px] text-text-gray-2 font-pt-narrow">
                         {formatDate(t.createdAt)}
@@ -368,10 +370,10 @@ export default function DashboardPage() {
                 </h2>
                 <p className="font-pt-narrow text-[14px] text-text-gray">
                   {isSubscriber
-                    ? "Unlimited transcripts + Dedicated PrateekAI Model v2.4"
+                    ? "Unlimited transcripts + OpenAI Whisper Cloud AI"
                     : isPending
                     ? "Your UTR is being verified by our admin team"
-                    : "7 free transcripts daily with PrateekAI Model"}
+                    : "7 free transcripts daily with 100% Local AI"}
                 </p>
               </div>
             </div>
@@ -461,19 +463,19 @@ export default function DashboardPage() {
               {/* Engine Breakdown */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white border-2 border-ink rounded-[14px] p-5 shadow-neo-sm">
-                  <h3 className="font-pt-narrow font-bold text-[18px] text-ink mb-4">⚡ PrateekAI Engine Stats</h3>
+                  <h3 className="font-pt-narrow font-bold text-[18px] text-ink mb-4">🤖 By AI Engine</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="font-pt-narrow text-[15px] text-ink flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-indigo inline-block" /> PrateekAI Ultra Neural Model
+                        <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> 🔒 Local AI
                       </span>
-                      <span className="font-pt-narrow font-bold text-[17px] text-ink">{stats.totalCount || 0}</span>
+                      <span className="font-pt-narrow font-bold text-[17px] text-ink">{stats.engineBreakdown.local || 0}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-pt-narrow text-[15px] text-ink flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-green-500 inline-block" /> Neural Precision
+                        <span className="w-3 h-3 rounded-full bg-indigo inline-block" /> ⚡ OpenAI Whisper
                       </span>
-                      <span className="font-pt-narrow font-bold text-[14px] text-indigo bg-indigo/10 px-2 py-0.5 rounded border border-indigo/20">99.4% Accuracy</span>
+                      <span className="font-pt-narrow font-bold text-[17px] text-ink">{stats.engineBreakdown.openai || 0}</span>
                     </div>
                   </div>
                 </div>
