@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
+import { getSubtitles } from "youtube-caption-extractor";
 import { prisma } from "@/lib/prisma";
 import { transcribeBuffer } from "@/lib/transcribe";
 import { getUserIdFromRequest } from "@/lib/getUserId";
@@ -16,6 +17,68 @@ function extractYoutubeId(url: string): string | null {
     const match = url.match(pattern);
     if (match?.[1]) return match[1];
   }
+  return null;
+}
+
+/**
+ * Multi-strategy YouTube transcript fetcher (tries YouTubeTranscript, then getSubtitles with language, then getSubtitles auto)
+ */
+async function fetchYoutubeCaptions(youtubeId: string, language?: string) {
+  // Method 1: youtube-transcript
+  try {
+    const raw = await YoutubeTranscript.fetchTranscript(youtubeId, {
+      lang: language && language !== "auto" ? language : undefined,
+    });
+    if (raw && raw.length > 0) {
+      return raw.map((item) => ({
+        start: Math.round((item.offset || 0) / 1000),
+        end: Math.round(((item.offset || 0) + (item.duration || 0)) / 1000),
+        text: (item.text || "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
+      }));
+    }
+  } catch (e1) {
+    // try next
+  }
+
+  // Method 2: youtube-caption-extractor with targeted language
+  try {
+    const raw = await getSubtitles({
+      videoID: youtubeId,
+      lang: language && language !== "auto" ? language : "en",
+    });
+    if (raw && raw.length > 0) {
+      return raw.map((item) => {
+        const start = parseFloat(item.start) || 0;
+        const dur = parseFloat(item.dur) || 0;
+        return {
+          start: Math.round(start),
+          end: Math.round(start + dur),
+          text: (item.text || "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
+        };
+      });
+    }
+  } catch (e2) {
+    // try next
+  }
+
+  // Method 3: youtube-caption-extractor default
+  try {
+    const raw = await getSubtitles({ videoID: youtubeId });
+    if (raw && raw.length > 0) {
+      return raw.map((item) => {
+        const start = parseFloat(item.start) || 0;
+        const dur = parseFloat(item.dur) || 0;
+        return {
+          start: Math.round(start),
+          end: Math.round(start + dur),
+          text: (item.text || "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
+        };
+      });
+    }
+  } catch (e3) {
+    // all caption extractors failed
+  }
+
   return null;
 }
 
@@ -67,50 +130,42 @@ export async function POST(req: NextRequest) {
     // ── 1. YOUTUBE LINK TRANSCRIPTION ──
     const youtubeId = extractYoutubeId(cleanUrl);
     if (youtubeId) {
-      try {
-        const rawTranscript = await YoutubeTranscript.fetchTranscript(youtubeId);
-        
-        if (rawTranscript && rawTranscript.length > 0) {
-          const segments = rawTranscript.map((item) => ({
-            start: Math.round((item.offset || 0) / 1000),
-            end: Math.round(((item.offset || 0) + (item.duration || 0)) / 1000),
-            text: (item.text || "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
-          }));
+      const segments = await fetchYoutubeCaptions(youtubeId, language);
 
-          const fullText = segments.map((s) => s.text).join(" ");
+      if (segments && segments.length > 0) {
+        const fullText = segments.map((s) => s.text).join(" ");
 
-          const job = await prisma.job.create({
-            data: {
-              fileName: `YouTube (${youtubeId})`,
-              fileUrl: cleanUrl,
-              sourceType: "link",
-              status: "done",
-              userId,
-              language: language !== "auto" ? language : null,
-              engine: "openai",
-            },
-          });
-
-          await prisma.transcript.create({
-            data: {
-              jobId: job.id,
-              text: fullText,
-              segments,
-            },
-          });
-
-          return NextResponse.json({ jobId: job.id });
-        }
-      } catch (ytErr) {
-        console.warn("YouTube caption fetch error:", ytErr);
-        return NextResponse.json(
-          {
-            error:
-              "Could not retrieve captions for this YouTube video (captions may be disabled on YouTube). Please drop the video/audio file into the upload box for instant transcription.",
+        const job = await prisma.job.create({
+          data: {
+            fileName: `YouTube (${youtubeId})`,
+            fileUrl: cleanUrl,
+            sourceType: "link",
+            status: "done",
+            userId,
+            language: language !== "auto" ? language : null,
+            engine: "openai",
           },
-          { status: 422 }
-        );
+        });
+
+        await prisma.transcript.create({
+          data: {
+            jobId: job.id,
+            text: fullText,
+            segments,
+          },
+        });
+
+        return NextResponse.json({ jobId: job.id });
       }
+
+      // If YouTube has zero captions on all methods
+      return NextResponse.json(
+        {
+          error:
+            "Could not retrieve captions for this YouTube video (captions are unavailable or disabled). Drop the video/audio file into the upload box for instant transcription.",
+        },
+        { status: 422 }
+      );
     }
 
     // ── 2. INSTAGRAM REELS & POSTS (MULTI-LAYER RESOLVER PIPELINE) ──
