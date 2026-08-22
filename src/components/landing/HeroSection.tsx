@@ -43,13 +43,23 @@ export default function HeroSection() {
 
       {/* Headline */}
       <h1
-        className="font-pt-narrow font-normal text-indigo leading-[1.08] relative z-10"
-        style={{ fontFamily: "'PT Sans Narrow', sans-serif", fontWeight: 400, fontSize: "clamp(36px, 6vw, 58px)" }}>
+        className="font-pt-narrow font-normal text-indigo relative z-10 tracking-tight"
+        style={{
+          fontFamily: "'PT Sans Narrow', sans-serif",
+          fontWeight: 400,
+          fontSize: "clamp(36px, 6vw, 58px)",
+          lineHeight: 1.03,
+          letterSpacing: "-0.03em",
+        }}
+      >
         turn any video<br />into text, instantly
       </h1>
 
       {/* Subhead */}
-      <p className="font-pt-narrow font-normal max-w-[46ch] mx-auto mt-[20px] text-text-gray text-[18px] leading-[1.6] relative z-10">
+      <p
+        className="font-pt-narrow font-normal max-w-[46ch] mx-auto mt-[16px] text-text-gray text-[17.5px] leading-[1.45] relative z-10"
+        style={{ letterSpacing: "-0.015em" }}
+      >
         drop a video, get a clean, accurate transcript in seconds. no editing skills required.
       </p>
 
