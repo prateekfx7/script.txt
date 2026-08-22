@@ -460,26 +460,27 @@ export default function Dropzone() {
               {mode === "upload" && (
                 <div
                   {...getRootProps()}
-                  className={`dropzone-dashed w-full flex flex-col items-center justify-center text-center cursor-pointer transition-colors duration-150 relative font-pt-narrow ${
+                  className={`dropzone-dashed group w-full flex flex-col items-center justify-center text-center cursor-pointer transition-colors duration-150 relative font-pt-narrow ${
                     isDragActive ? "bg-indigo/5 border-indigo" : ""
                   }`}
                 >
                   <input {...getInputProps()} id="file-input" />
                   <div className="flex flex-col items-center justify-center text-center w-full">
-                    <div className="text-indigo mb-3 flex items-center justify-center">
-                      <svg
-                        className="w-[38px] h-[38px]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
+                    <div className="mb-4 flex items-center justify-center">
+                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.08)] transform transition-transform duration-300 group-hover:-translate-y-1 hover:scale-105">
+                        <svg
+                          className={`w-6 h-6 text-ink ${isDragActive ? "animate-bounce" : ""}`}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <polyline points="19 12 12 19 5 12" />
+                        </svg>
+                      </div>
                     </div>
                     <div className="text-[17px] text-ink mb-4 font-bold font-pt-narrow">
                       {isDragActive ? "drop it!" : "drop your video or audio here, or"}
