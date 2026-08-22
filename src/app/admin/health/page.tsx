@@ -42,27 +42,27 @@ export default function AdminHealthPage() {
     new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   return (
-    <div className="font-sfpro">
-      <div className="flex justify-between items-center mb-8">
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <h1 className="text-[24px] font-bold text-ink mb-1 tracking-tight">System Health</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>System Health</h1>
           {data?.checkedAt && (
-            <p className="text-[14px] text-text-gray-2">Last checked at {fmtTime(data.checkedAt)}</p>
+            <p style={{ color: "#7A7A76", fontSize: 13 }}>Last checked at {fmtTime(data.checkedAt)}</p>
           )}
         </div>
         <button
           onClick={check}
           disabled={loading}
-          className="px-5 py-2.5 bg-ink text-white font-bold text-[13px] rounded-[10px] hover:bg-black transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ padding: "7px 16px", background: "#171717", border: "none", borderRadius: 6, color: "#fff", fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: loading ? 0.6 : 1 }}
         >
           {loading ? "Checking…" : "Recheck"}
         </button>
       </div>
 
-      {!data && loading && <p className="text-[14px] text-text-gray-2 animate-pulse">Running checks…</p>}
+      {!data && loading && <p style={{ color: "#7A7A76", fontSize: 14 }}>Running checks…</p>}
 
       {data && (
-        <div className="bg-white border border-gray-100 rounded-[14px] shadow-sm overflow-hidden">
+        <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" }}>
           {SERVICES.map((svc, i) => {
             const result = data.results[svc.key];
             const ok = result?.ok ?? false;
@@ -70,37 +70,46 @@ export default function AdminHealthPage() {
             return (
               <div
                 key={svc.key}
-                className={`flex items-center px-6 py-5 hover:bg-gray-50 transition-colors gap-5 ${
-                  i < SERVICES.length - 1 ? "border-b border-gray-100" : ""
-                }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "16px 20px",
+                  borderBottom: i < SERVICES.length - 1 ? "1px solid #f0f0f0" : "none",
+                  gap: 16,
+                }}
               >
                 {/* Status dot */}
                 <div
-                  className={`w-3 h-3 rounded-full shrink-0 shadow-inner ${
-                    !result ? "bg-gray-300" : ok ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse"
-                  }`}
+                  style={{
+                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                    background: !result ? "#e5e5e5" : ok ? "#26A94C" : "#e53e3e",
+                  }}
                 />
 
                 {/* Label */}
-                <div className="flex-1">
-                  <p className="text-[15px] font-bold text-ink mb-1 tracking-tight">{svc.label}</p>
-                  <p className={`text-[13px] ${!ok && result ? "text-red-600 font-medium" : "text-text-gray-2"}`}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#171717", marginBottom: 1 }}>{svc.label}</p>
+                  <p style={{ fontSize: 12, color: "#7A7A76" }}>
                     {result?.error ?? svc.desc}
                   </p>
                 </div>
 
                 {/* Latency */}
                 {result && ok && (
-                  <span className="text-[13px] text-text-gray-2 font-mono bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">
+                  <span style={{ fontSize: 12, color: "#7A7A76", fontFamily: "monospace" }}>
                     {latency}ms
                   </span>
                 )}
 
                 {/* Status label */}
                 <span
-                  className={`text-[13px] font-bold uppercase tracking-wider min-w-[60px] text-right ${
-                    !result ? "text-gray-400" : ok ? "text-green-600" : "text-red-600"
-                  }`}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: !result ? "#aaa" : ok ? "#26A94C" : "#e53e3e",
+                    minWidth: 48,
+                    textAlign: "right",
+                  }}
                 >
                   {!result ? "—" : ok ? "OK" : "Error"}
                 </span>

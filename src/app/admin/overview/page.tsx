@@ -55,52 +55,52 @@ export default function AdminOverviewPage() {
   };
 
   return (
-    <div className="font-sfpro">
-      <h1 className="text-[24px] font-bold text-ink mb-1 tracking-tight">Overview</h1>
-      <p className="text-[14px] text-text-gray-2 mb-8">Platform health at a glance</p>
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Overview</h1>
+      <p style={{ color: "#7A7A76", marginBottom: 32, fontSize: 14 }}>Platform health at a glance</p>
 
-      {loading ? <p className="text-[14px] text-text-gray-2 animate-pulse">Loading…</p> : (
+      {loading ? <p style={{ color: "#7A7A76", fontSize: 14 }}>Loading…</p> : (
         <>
           {/* Stats row */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-10">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 1, background: "#e5e5e5", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden", marginBottom: 40 }}>
             {[
               { label: "Users", value: stats?.totalUsers ?? 0 },
               { label: "Total Jobs", value: stats?.totalJobs ?? 0 },
-              { label: "Done", value: stats?.statusMap?.done ?? 0, color: "text-green" },
-              { label: "Failed", value: stats?.statusMap?.failed ?? 0, color: "text-red-500" },
-              { label: "Pending", value: stats?.statusMap?.pending ?? 0, color: "text-orange-500" },
-              { label: "Processing", value: stats?.statusMap?.processing ?? 0, color: "text-blue-600" },
+              { label: "Done", value: stats?.statusMap?.done ?? 0, color: "#26A94C" },
+              { label: "Failed", value: stats?.statusMap?.failed ?? 0, color: "#e53e3e" },
+              { label: "Pending", value: stats?.statusMap?.pending ?? 0, color: "#d97706" },
+              { label: "Processing", value: stats?.statusMap?.processing ?? 0, color: "#2563eb" },
             ].map((s) => (
-              <div key={s.label} className="bg-white rounded-[14px] p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                <p className="text-[11px] text-text-gray-2 font-bold tracking-wider uppercase mb-2">{s.label}</p>
-                <p className={`text-[32px] font-bold leading-none ${s.color ?? "text-ink"}`}>{s.value.toLocaleString()}</p>
+              <div key={s.label} style={{ background: "#fff", padding: "20px 16px" }}>
+                <p style={{ fontSize: 11, color: "#7A7A76", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>{s.label}</p>
+                <p style={{ fontSize: 28, fontWeight: 800, color: s.color ?? "#171717", lineHeight: 1 }}>{s.value.toLocaleString()}</p>
               </div>
             ))}
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            <div className="bg-white rounded-[16px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <p className="text-[12px] font-bold text-text-gray-2 tracking-wider uppercase mb-6">Jobs — last 7 days</p>
-              <ResponsiveContainer width="100%" height={220}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 40 }}>
+            <div style={{ background: "#fff", borderRadius: 8, border: "1px solid #e5e5e5", padding: "20px 24px" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#7A7A76", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 16 }}>Jobs — last 7 days</p>
+              <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={stats?.jobsByDay ?? []}>
-                  <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} dx={-10} />
-                  <Tooltip cursor={{ stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '4 4' }} contentStyle={{ background: "#fff", border: "none", borderRadius: 8, boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)", fontSize: 13, fontWeight: 500 }} labelFormatter={(v) => fmtDay(v as string)} />
-                  <Line type="monotone" dataKey="count" stroke="#3222DD" strokeWidth={3} dot={{ r: 4, fill: "#fff", stroke: "#3222DD", strokeWidth: 2 }} activeDot={{ r: 6, fill: "#3222DD", stroke: "#fff", strokeWidth: 2 }} />
+                  <CartesianGrid stroke="#f5f5f5" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fill: "#7A7A76", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: "#7A7A76", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, fontSize: 12 }} labelFormatter={(v) => fmtDay(v as string)} />
+                  <Line type="monotone" dataKey="count" stroke="#3222DD" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#3222DD" }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="bg-white rounded-[16px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <p className="text-[12px] font-bold text-text-gray-2 tracking-wider uppercase mb-6">New Users — last 7 days</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={stats?.usersByDay ?? []} barSize={32}>
-                  <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} dx={-10} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ background: "#fff", border: "none", borderRadius: 8, boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)", fontSize: 13, fontWeight: 500 }} labelFormatter={(v) => fmtDay(v as string)} />
-                  <Bar dataKey="count" fill="#171717" radius={[4, 4, 0, 0]} />
+            <div style={{ background: "#fff", borderRadius: 8, border: "1px solid #e5e5e5", padding: "20px 24px" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#7A7A76", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 16 }}>New Users — last 7 days</p>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={stats?.usersByDay ?? []}>
+                  <CartesianGrid stroke="#f5f5f5" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fill: "#7A7A76", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: "#7A7A76", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, fontSize: 12 }} labelFormatter={(v) => fmtDay(v as string)} />
+                  <Bar dataKey="count" fill="#171717" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -108,23 +108,23 @@ export default function AdminOverviewPage() {
 
           {/* Activity feed */}
           <div>
-            <p className="text-[14px] font-bold text-ink mb-3 tracking-tight">Recent Activity</p>
-            <div className="bg-white rounded-[14px] shadow-sm border border-gray-100 overflow-hidden">
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#171717", marginBottom: 12 }}>Recent Activity</p>
+            <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" }}>
               {recent.length === 0 ? (
-                <p className="p-6 text-text-gray-2 text-[14px]">No recent jobs.</p>
+                <p style={{ padding: 20, color: "#7A7A76", fontSize: 13 }}>No recent jobs.</p>
               ) : (
                 recent.map((j, i) => (
-                  <div key={j.id} className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors ${i < recent.length - 1 ? "border-b border-gray-100" : ""}`}>
-                    <span className="text-[14px] w-5 text-center shrink-0" style={{ color: STATUS_COLOR[j.status] ?? "#7A7A76" }}>
+                  <div key={j.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderBottom: i < recent.length - 1 ? "1px solid #f0f0f0" : "none" }}>
+                    <span style={{ fontSize: 14, color: STATUS_COLOR[j.status] ?? "#7A7A76", width: 16, textAlign: "center", flexShrink: 0 }}>
                       {STATUS_ICON[j.status] ?? "·"}
                     </span>
-                    <span className="text-[14px] font-medium text-ink flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                    <span style={{ fontSize: 13, color: "#171717", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {j.fileName}
                     </span>
-                    <span className="text-[12px] font-bold uppercase tracking-wider shrink-0 min-w-[72px] text-right" style={{ color: STATUS_COLOR[j.status] ?? "#7A7A76" }}>
+                    <span style={{ fontSize: 12, color: STATUS_COLOR[j.status] ?? "#7A7A76", flexShrink: 0, minWidth: 64, textAlign: "right" }}>
                       {j.status}
                     </span>
-                    <span className="text-[12px] text-gray-400 shrink-0 min-w-[64px] text-right font-medium">
+                    <span style={{ fontSize: 11, color: "#aaa", flexShrink: 0, minWidth: 60, textAlign: "right" }}>
                       {timeAgo(j.createdAt)}
                     </span>
                   </div>

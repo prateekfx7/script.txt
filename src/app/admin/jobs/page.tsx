@@ -100,95 +100,83 @@ export default function AdminJobsPage() {
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div className="font-sfpro">
+    <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <h1 className="text-[24px] font-bold text-ink mb-1 tracking-tight">Jobs</h1>
-          <p className="text-[14px] text-text-gray-2">{total} total</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 2 }}>Jobs</h1>
+          <p style={{ color: "#7A7A76", fontSize: 14 }}>{total} total</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {selected.size > 0 && (
             <button onClick={bulkDelete} disabled={bulkLoading}
-              className="text-[13px] font-bold text-red-600 bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 rounded-[8px] px-3.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              style={{ fontSize: 12, fontWeight: 600, color: "#e53e3e", background: "none", border: "1px solid #e5e5e5", borderRadius: 6, padding: "6px 12px", cursor: bulkLoading ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
               {bulkLoading ? "Deleting…" : `Delete ${selected.size} selected`}
             </button>
           )}
           <button onClick={downloadCsv} disabled={exporting}
-            className="text-[13px] font-bold text-ink bg-white border border-gray-200 hover:bg-gray-50 rounded-[8px] px-3.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            style={{ fontSize: 12, fontWeight: 600, color: "#5B5B58", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, padding: "6px 12px", cursor: exporting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
             {exporting ? "Exporting…" : "Export CSV"}
           </button>
         </div>
       </div>
 
       {/* Filters row */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex bg-gray-200/50 p-1 rounded-[10px]">
-          {TABS.map((t) => (
-            <button key={t} onClick={() => switchTab(t)}
-              className={`px-3.5 py-1.5 rounded-[8px] text-[13px] font-bold capitalize transition-all ${
-                tab === t ? "bg-white text-ink shadow-sm" : "text-text-gray-2 hover:text-ink"
-              }`}>
-              {t}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        {TABS.map((t) => (
+          <button key={t} onClick={() => switchTab(t)}
+            style={{ padding: "5px 12px", background: tab === t ? "#171717" : "#fff", border: "1px solid " + (tab === t ? "#171717" : "#e5e5e5"), borderRadius: 6, color: tab === t ? "#fff" : "#5B5B58", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" }}>
+            {t}
+          </button>
+        ))}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
           <input
             placeholder="Search filename…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && doSearch()}
-            className="bg-white border border-gray-200 rounded-[10px] px-3.5 py-2 text-ink text-[13px] outline-none focus:border-indigo focus:ring-1 focus:ring-indigo transition-all w-[220px]"
+            style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, padding: "5px 10px", color: "#171717", fontSize: 12, outline: "none", width: 180, fontFamily: "inherit" }}
           />
           <button onClick={doSearch}
-            className="px-3.5 py-2 bg-white border border-gray-200 rounded-[10px] text-ink font-bold text-[13px] hover:bg-gray-50 transition-colors">
+            style={{ padding: "5px 12px", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, color: "#5B5B58", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
             Search
           </button>
         </div>
       </div>
 
-      {loading ? <p className="text-[14px] text-text-gray-2 animate-pulse">Loading…</p> : (
+      {loading ? <p style={{ color: "#7A7A76", fontSize: 14 }}>Loading…</p> : (
         <>
-          <div className="bg-white border border-gray-100 rounded-[14px] shadow-sm overflow-hidden">
-            <table className="w-full border-collapse">
+          <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-4 py-3.5 w-10 text-center">
-                    <input type="checkbox" checked={selected.size === jobs.length && jobs.length > 0} onChange={toggleAll} className="cursor-pointer rounded accent-ink" />
+                <tr style={{ borderBottom: "1px solid #e5e5e5" }}>
+                  <th style={{ padding: "10px 14px", width: 36 }}>
+                    <input type="checkbox" checked={selected.size === jobs.length && jobs.length > 0} onChange={toggleAll} style={{ cursor: "pointer" }} />
                   </th>
                   {["File", "Type", "Status", "Created", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3.5 text-left text-[11px] font-bold text-text-gray-2 tracking-wider uppercase">
-                      {h}
-                    </th>
+                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#7A7A76", letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {jobs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-text-gray-2 text-[14px]">
-                      No jobs found
-                    </td>
-                  </tr>
+                  <tr><td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#7A7A76", fontSize: 14 }}>No jobs found</td></tr>
                 ) : jobs.map((j, i) => (
-                  <tr key={j.id} className={`hover:bg-gray-50 transition-colors ${i < jobs.length - 1 ? "border-b border-gray-100" : ""} ${selected.has(j.id) ? "bg-indigo/5" : ""}`}>
-                    <td className="px-4 py-3.5 text-center">
-                      <input type="checkbox" checked={selected.has(j.id)} onChange={() => toggleSelect(j.id)} className="cursor-pointer rounded accent-ink" />
+                  <tr key={j.id} style={{ borderBottom: i < jobs.length - 1 ? "1px solid #f0f0f0" : "none", background: selected.has(j.id) ? "#fafafe" : "transparent" }}>
+                    <td style={{ padding: "10px 14px" }}>
+                      <input type="checkbox" checked={selected.has(j.id)} onChange={() => toggleSelect(j.id)} style={{ cursor: "pointer" }} />
                     </td>
-                    <td className="px-4 py-3.5 text-[14px] text-ink font-medium max-w-[260px] truncate">{j.fileName}</td>
-                    <td className="px-4 py-3.5 text-[11px] text-text-gray-2 tracking-wider uppercase font-bold">{j.sourceType}</td>
-                    <td className="px-4 py-3.5">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase ${j.status === "done" ? "bg-green-50 text-green-600" : j.status === "failed" ? "bg-red-50 text-red-600" : j.status === "pending" ? "bg-orange-50 text-orange-500" : "bg-blue-50 text-blue-600"}`}>
-                        {j.status}
-                      </span>
+                    <td style={{ padding: "10px 14px", fontSize: 13, color: "#171717", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{j.fileName}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 11, color: "#7A7A76", textTransform: "uppercase", letterSpacing: "0.05em" }}>{j.sourceType}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLOR[j.status] ?? "#7A7A76" }}>{j.status}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-[13px] text-text-gray-2 font-medium">{fmtDate(j.createdAt)}</td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex gap-4">
-                        {j.transcriptPreview && <TxtBtn label="View" className="text-indigo" loading={false} onClick={() => setPreview(j)} />}
-                        {(j.status === "failed" || j.status === "pending") && <TxtBtn label="Retry" className="text-orange-500" loading={actionLoading === j.id} onClick={() => doAction("retry", j)} />}
-                        <TxtBtn label="Delete" className="text-red-600" loading={actionLoading === j.id} onClick={() => doAction("delete", j)} />
+                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#7A7A76" }}>{fmtDate(j.createdAt)}</td>
+                    <td style={{ padding: "10px 14px" }}>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        {j.transcriptPreview && <TxtBtn label="View" color="#3222DD" loading={false} onClick={() => setPreview(j)} />}
+                        {(j.status === "failed" || j.status === "pending") && <TxtBtn label="Retry" color="#d97706" loading={actionLoading === j.id} onClick={() => doAction("retry", j)} />}
+                        <TxtBtn label="Delete" color="#e53e3e" loading={actionLoading === j.id} onClick={() => doAction("delete", j)} />
                       </div>
                     </td>
                   </tr>
@@ -198,9 +186,9 @@ export default function AdminJobsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 mt-6">
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 16 }}>
               <PageBtn label="← Prev" disabled={page === 1} onClick={() => { setPage(page - 1); load(tab, page - 1, search); }} />
-              <span className="text-[13px] text-text-gray-2 font-bold px-2">
+              <span style={{ color: "#7A7A76", fontSize: 12, display: "flex", alignItems: "center", padding: "0 8px" }}>
                 {page} / {totalPages}
               </span>
               <PageBtn label="Next →" disabled={page === totalPages} onClick={() => { setPage(page + 1); load(tab, page + 1, search); }} />
@@ -211,20 +199,20 @@ export default function AdminJobsPage() {
 
       {/* Transcript modal */}
       {preview && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[999] p-4 transition-opacity" onClick={() => setPreview(null)}>
-          <div className="bg-white rounded-[16px] p-8 max-w-[560px] w-full max-h-[75vh] overflow-y-auto shadow-xl border border-gray-100 transform transition-transform" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-[18px] font-bold text-ink tracking-tight">Transcript Preview</h2>
-              <button onClick={() => setPreview(null)} className="text-text-gray-2 hover:text-ink transition-colors text-[20px] leading-none">✕</button>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }} onClick={() => setPreview(null)}>
+          <div style={{ background: "#fff", borderRadius: 10, padding: "24px 28px", maxWidth: 560, width: "90%", maxHeight: "70vh", overflow: "auto", border: "1px solid #e5e5e5" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700 }}>Transcript Preview</h2>
+              <button onClick={() => setPreview(null)} style={{ background: "none", border: "none", color: "#7A7A76", fontSize: 18, cursor: "pointer" }}>✕</button>
             </div>
-            <p className="text-[13px] text-text-gray-2 mb-4 font-mono">{preview.fileName}</p>
-            <p className="text-[14px] text-ink leading-relaxed whitespace-pre-wrap">
+            <p style={{ fontSize: 12, color: "#7A7A76", marginBottom: 12, fontFamily: "monospace" }}>{preview.fileName}</p>
+            <p style={{ color: "#171717", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
               {preview.transcriptPreview}
-              {(preview.transcriptPreview?.length ?? 0) >= 200 && <span className="text-gray-400">… (truncated)</span>}
+              {(preview.transcriptPreview?.length ?? 0) >= 200 && <span style={{ color: "#aaa" }}>… (truncated)</span>}
             </p>
             {preview.transcriptId && (
               <a href={`/transcript/${preview.transcriptId}`} target="_blank" rel="noreferrer"
-                className="inline-block mt-5 text-[14px] font-bold text-indigo hover:underline">
+                style={{ display: "inline-block", marginTop: 14, color: "#3222DD", fontSize: 13 }}>
                 Open full transcript →
               </a>
             )}
@@ -235,10 +223,10 @@ export default function AdminJobsPage() {
   );
 }
 
-function TxtBtn({ label, className, onClick, loading }: { label: string; className: string; onClick: () => void; loading: boolean }) {
+function TxtBtn({ label, color, onClick, loading }: { label: string; color: string; onClick: () => void; loading: boolean }) {
   return (
     <button onClick={onClick} disabled={loading}
-      className={`text-[12px] font-bold tracking-wide hover:opacity-70 transition-opacity disabled:cursor-not-allowed ${loading ? "text-gray-400" : className}`}>
+      style={{ background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 600, color: loading ? "#ccc" : color, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
       {label}
     </button>
   );
@@ -247,7 +235,7 @@ function TxtBtn({ label, className, onClick, loading }: { label: string; classNa
 function PageBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} disabled={disabled}
-      className="px-3.5 py-1.5 bg-white border border-gray-200 rounded-[8px] text-[13px] font-bold text-ink hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+      style={{ padding: "5px 10px", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 6, color: disabled ? "#ccc" : "#5B5B58", fontSize: 12, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
       {label}
     </button>
   );
