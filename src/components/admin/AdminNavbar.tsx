@@ -18,31 +18,70 @@ export default function AdminNavbar() {
   const { user, signOut } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center px-10 h-[52px] font-sfpro">
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        background: "#fff",
+        borderBottom: "1px solid #e5e5e5",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 40px",
+        height: 52,
+        gap: 0,
+      }}
+    >
       {/* Logo */}
       <Link
         href="/admin/overview"
-        className="font-pixel text-[16px] font-bold text-ink tracking-tight mr-8 shrink-0 no-underline"
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: "#171717",
+          letterSpacing: "-0.5px",
+          marginRight: 32,
+          flexShrink: 0,
+          textDecoration: "none",
+        }}
       >
         scribe.txt
-        <span className="ml-1.5 text-[10px] font-bold text-indigo tracking-widest uppercase font-sfpro">
+        <span
+          style={{
+            marginLeft: 6,
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#3222DD",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            fontFamily: "inherit",
+          }}
+        >
           admin
         </span>
       </Link>
 
       {/* Nav links */}
-      <nav className="flex flex-1 h-full">
+      <nav style={{ display: "flex", gap: 0, flex: 1 }}>
         {NAV.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-4 h-full flex items-center text-[13px] border-b-2 transition-colors whitespace-nowrap ${
-                active
-                  ? "font-bold text-ink border-indigo"
-                  : "font-medium text-text-gray-2 border-transparent hover:text-ink hover:border-gray-300"
-              }`}
+              style={{
+                padding: "0 16px",
+                height: 52,
+                display: "flex",
+                alignItems: "center",
+                fontSize: 13,
+                fontWeight: active ? 700 : 400,
+                color: active ? "#171717" : "#7A7A76",
+                borderBottom: active ? "2px solid #3222DD" : "2px solid transparent",
+                textDecoration: "none",
+                transition: "color 0.12s",
+                whiteSpace: "nowrap",
+              }}
             >
               {item.label}
             </Link>
@@ -51,13 +90,21 @@ export default function AdminNavbar() {
       </nav>
 
       {/* User */}
-      <div className="flex items-center gap-4 shrink-0">
-        <span className="text-[12px] text-text-gray-2 font-mono bg-gray-100 px-2 py-1 rounded-md">
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+        <span style={{ fontSize: 13, color: "#7A7A76" }}>
           {user?.email}
         </span>
         <button
           onClick={signOut}
-          className="text-[12px] font-medium text-text-gray-2 hover:text-ink transition-colors"
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 12,
+            color: "#7A7A76",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            padding: 0,
+          }}
         >
           Sign out
         </button>

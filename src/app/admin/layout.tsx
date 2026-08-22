@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading || isAdmin === null) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center text-text-gray-2 text-[14px] font-sfpro">
+      <div style={{ minHeight: "100vh", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#7A7A76", fontSize: 14 }}>
         Loading…
       </div>
     );
@@ -31,18 +31,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-3 font-sfpro">
-        <p className="text-[72px] font-bold text-ink leading-none">403</p>
-        <p className="text-[15px] text-text-gray-2">Access denied — this email is not an admin.</p>
-        <a href="/" className="text-[13px] text-indigo hover:underline">← Back to scribe.txt</a>
+      <div style={{ minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <p style={{ fontSize: 72, fontWeight: 800, color: "#171717", lineHeight: 1 }}>403</p>
+        <p style={{ fontSize: 15, color: "#7A7A76" }}>Access denied — this email is not an admin.</p>
+        <a href="/" style={{ fontSize: 13, color: "#3222DD" }}>← Back to scribe.txt</a>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] font-sfpro">
+    <div style={{ minHeight: "100vh", background: "#F5F5F3", fontFamily: "'SF Pro Display', -apple-system, sans-serif" }}>
       <AdminNavbar />
-      <main className="max-w-[1200px] mx-auto px-10 py-9 text-ink">
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 40px", color: "#171717" }}>
         {children}
       </main>
     </div>
