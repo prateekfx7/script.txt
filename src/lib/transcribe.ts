@@ -107,6 +107,9 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
+    const errObj = err as { status?: number; message?: string; code?: string; error?: { message?: string } };
+    const errMessage = (errObj.error?.message || errObj.message || "").toLowerCase();
+
     // Detect 401 Unauthorized / Invalid API Key
     const isAuthError =
       errObj.status === 401 ||
