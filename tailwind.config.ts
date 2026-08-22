@@ -22,6 +22,8 @@ const config: Config = {
         pixel: ["var(--font-vt323)", "monospace"],
         display: ["'PT Sans Narrow'", "sans-serif"],
         body: ["'PT Sans Narrow'", "sans-serif"],
+        baskerville: ["'Libre Baskerville'", "serif"],
+        sfpro: ["'SF Pro Display'", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       borderRadius: {
         neo: "16px",

@@ -1,19 +1,42 @@
 /**
  * lib/transcribe.ts
  *
- * Whisper API abstraction using official OpenAI Whisper API.
- * Reads OPENAI_API_KEY and TRANSCRIBE_API_BASE_URL from env.
+ * Whisper API abstraction supporting Groq (ultra-fast Whisper) and OpenAI.
+ * Reads GROQ_API_KEY, OPENAI_API_KEY, TRANSCRIBE_API_BASE_URL, and WHISPER_MODEL from env.
  */
 
 import OpenAI from "openai";
 
-function getOpenAIClient() {
+export function getTranscribeConfig() {
+  const isGroq = !!process.env.GROQ_API_KEY || (process.env.TRANSCRIBE_API_BASE_URL ?? "").includes("groq.com");
+  
+  const apiKey =
+    process.env.GROQ_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    "dummy-key";
+
   const baseURL =
-    process.env.TRANSCRIBE_API_BASE_URL ?? "https://api.openai.com/v1";
-  const apiKey = process.env.OPENAI_API_KEY || "dummy-key";
-  return new OpenAI({
+    process.env.TRANSCRIBE_API_BASE_URL ||
+    (process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1");
+
+  // Groq default model: whisper-large-v3-turbo (or whisper-large-v3)
+  // OpenAI default model: whisper-1
+  const defaultModel = isGroq ? "whisper-large-v3-turbo" : "whisper-1";
+  const model = process.env.WHISPER_MODEL || defaultModel;
+
+  return {
+    provider: isGroq ? "groq" : "openai",
     apiKey,
     baseURL,
+    model,
+  };
+}
+
+function getOpenAIClient() {
+  const config = getTranscribeConfig();
+  return new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
   });
 }
 
@@ -29,7 +52,7 @@ export interface TranscriptionResult {
 }
 
 /**
- * Transcribe a file buffer using OpenAI Whisper API.
+ * Transcribe a file buffer using Groq or OpenAI Whisper API.
  */
 export async function transcribeBuffer(
   buffer: Buffer,
@@ -37,13 +60,25 @@ export async function transcribeBuffer(
   mimeType: string,
   language?: string
 ): Promise<TranscriptionResult> {
-  const file = new File([new Uint8Array(buffer)], fileName, { type: mimeType });
-  const model = process.env.WHISPER_MODEL ?? "whisper-1";
+  if (!buffer || buffer.byteLength < 200) {
+    throw new Error("Invalid audio buffer: file is empty or corrupted.");
+  }
+
+  // Ensure fileName has a recognized media extension
+  let safeFileName = fileName;
+  if (!/\.(mp3|mp4|m4a|wav|webm|ogg|aac|flac)$/i.test(safeFileName)) {
+    safeFileName = `${safeFileName.replace(/\.[^/.]+$/, "")}.mp3`;
+  }
+
+  const file = new File([new Uint8Array(buffer)], safeFileName, {
+    type: mimeType.includes("audio") || mimeType.includes("video") ? mimeType : "audio/mpeg",
+  });
+  const config = getTranscribeConfig();
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = {
-      model,
+      model: config.model,
       file,
       response_format: "verbose_json",
       timestamp_granularities: ["segment"],
@@ -58,13 +93,13 @@ export async function transcribeBuffer(
 
     const raw = response as unknown as {
       text: string;
-      segments: Array<{ start: number; end: number; text: string }>;
+      segments?: Array<{ start: number; end: number; text: string }>;
     };
 
     const segments: Segment[] = (raw.segments ?? []).map((s) => ({
-      start: s.start,
-      end: s.end,
-      text: s.text.trim(),
+      start: typeof s.start === "number" ? s.start : 0,
+      end: typeof s.end === "number" ? s.end : 0,
+      text: (s.text || "").trim(),
     }));
 
     return {
@@ -72,17 +107,27 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
+    const errObj = err as { status?: number; message?: string; code?: string; error?: { message?: string } };
+    const errMessage = (errObj.error?.message || errObj.message || "").toLowerCase();
+
     // Detect 429 Rate Limit Exceeded
-    const errObj = err as { status?: number; message?: string; code?: string };
     const isRateLimit =
       errObj.status === 429 ||
       errObj.code === "rate_limit_exceeded" ||
-      errObj.message?.toLowerCase().includes("rate limit") ||
-      errObj.message?.toLowerCase().includes("quota");
+      errMessage.includes("rate limit") ||
+      errMessage.includes("quota");
 
     if (isRateLimit) {
+      const providerName = config.provider === "groq" ? "Groq" : "OpenAI";
       throw new Error(
-        "OpenAI API rate limit or quota reached. Please check your OpenAI account billing and API key."
+        `${providerName} API rate limit or quota reached. Please check your ${providerName} account quota and API key.`
+      );
+    }
+
+    // Detect invalid media file error
+    if (errMessage.includes("could not process file") || errMessage.includes("valid media file")) {
+      throw new Error(
+        "Could not extract audio track from this media. Please ensure the link is a valid audio/video file or drop the file directly into the upload box."
       );
     }
 

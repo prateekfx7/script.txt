@@ -38,7 +38,7 @@
 - **Styling**: Neo-Brutalism design system with Tailwind CSS & custom CSS variables
 - **Database & Auth**: [Supabase](https://supabase.com/) (PostgreSQL database, Auth, Storage) & [Prisma ORM](https://www.prisma.io/)
 - **AI Engines**:
-  - **Cloud**: [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) (`whisper-1`)
+  - **Cloud**: [Groq Whisper](https://console.groq.com/) (`whisper-large-v3-turbo`, `whisper-large-v3`) & [OpenAI Whisper API](https://platform.openai.com/docs/guides/speech-to-text) (`whisper-1`)
   - **Local**: [@xenova/transformers](https://huggingface.co/docs/transformers.js) (`Xenova/whisper-tiny` multilingual)
 - **Background Jobs**: [Inngest](https://www.inngest.com/)
 
@@ -74,9 +74,11 @@ DATABASE_URL=postgresql://postgres.your-project:password@aws-0-region.pooler.sup
 DIRECT_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
-# ── OpenAI Whisper (For Pro Cloud AI) ────────────────────────────────────────
-OPENAI_API_KEY=sk-...
-TRANSCRIBE_API_BASE_URL=https://api.openai.com/v1
+# ── Groq Whisper (Lightning-Fast Cloud AI) ──────────────────────────────────
+# Get your free API key at https://console.groq.com/keys
+GROQ_API_KEY=gsk_...
+WHISPER_MODEL=whisper-large-v3-turbo
+TRANSCRIBE_API_BASE_URL=https://api.groq.com/openai/v1
 
 # ── Inngest (Background Task Queue) ──────────────────────────────────────────
 INNGEST_EVENT_KEY=your-inngest-event-key

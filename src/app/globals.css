@@ -14,6 +14,45 @@
   font-display: swap;
 }
 
+/* Libre Baskerville — local font files */
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('/LibreBaskerville-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('/LibreBaskerville-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* SF Pro Display — local font files */
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('/SFPRODISPLAYREGULAR.OTF') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('/SFPRODISPLAYMEDIUM.OTF') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('/SFPRODISPLAYBOLD.OTF') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -96,6 +135,16 @@
   /* PT Sans Narrow utility */
   .font-pt-narrow {
     font-family: 'PT Sans Narrow', sans-serif !important;
+  }
+
+  /* Libre Baskerville utility */
+  .font-baskerville {
+    font-family: 'Libre Baskerville', serif !important;
+  }
+
+  /* SF Pro Display utility */
+  .font-sf-pro {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif !important;
   }
 
   /* Feature & price cards */

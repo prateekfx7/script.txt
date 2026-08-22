@@ -10,6 +10,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,10 @@ function LoginForm() {
           email,
           password,
           options: {
+            data: {
+              username: username.trim() || email.split("@")[0],
+              full_name: username.trim() || email.split("@")[0],
+            },
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
@@ -111,7 +116,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-4 py-12 font-pt-narrow">
       {/* Logo */}
       <a
         href="/"
@@ -120,13 +125,13 @@ function LoginForm() {
         scribe.txt
       </a>
 
-      <div className="w-full max-w-[440px] bg-white border-2 border-ink rounded-[24px] p-8 sm:p-10 shadow-[6px_6px_0_#171717]">
+      <div className="w-full max-w-[440px] bg-white border border-ink/20 rounded-[24px] p-8 sm:p-10 shadow-sm">
         {/* Header */}
         <div className="mb-8">
           <h1 className="font-pt-narrow font-bold text-[30px] text-ink leading-tight mb-1">
-            {mode === "login" ? "Welcome back 👋" : "Create your account"}
+            {mode === "login" ? "Welcome back" : "Create your account"}
           </h1>
-          <p className="font-pt-narrow text-[16px] text-text-gray">
+          <p className="font-pt-narrow text-[16px] text-text-gray font-medium">
             {mode === "login"
               ? "Log in to access your subscription and transcripts."
               : "Sign up for free — 7 transcripts daily on us."}
@@ -138,7 +143,7 @@ function LoginForm() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={googleLoading || loading}
-          className="w-full mb-5 flex items-center justify-center gap-3 border-2 border-ink bg-white rounded-[12px] py-3 px-4 font-pt-narrow font-bold text-[16px] text-ink shadow-neo-sm hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[1px_1px_0_#171717] disabled:opacity-60 transition-all cursor-pointer"
+          className="w-full mb-5 flex items-center justify-center gap-3 border border-ink/20 bg-white rounded-[10px] py-3 px-4 font-pt-narrow font-bold text-[16px] text-ink shadow-sm hover:bg-gray-50 disabled:opacity-60 transition-all cursor-pointer"
         >
           {/* Google Icon */}
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
@@ -165,12 +170,29 @@ function LoginForm() {
         {/* Divider */}
         <div className="flex items-center gap-3 mb-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="font-pt-narrow text-[13px] text-text-gray-2">or with email</span>
+          <span className="font-pt-narrow text-[13px] text-text-gray-2 font-medium">or with email</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "signup" && (
+            <div>
+              <label className="block font-pt-narrow font-bold text-[14px] text-ink mb-1" htmlFor="username">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                required
+                placeholder="yourusername"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full border border-ink/20 rounded-[10px] px-4 py-3 text-[15px] font-pt-narrow bg-white outline-none focus:border-indigo transition-colors placeholder:text-text-gray-2 font-medium"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block font-pt-narrow font-bold text-[14px] text-ink mb-1" htmlFor="email">
               Email address
@@ -183,7 +205,7 @@ function LoginForm() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border-2 border-ink rounded-[10px] px-4 py-3 text-[15px] font-pt-narrow bg-white outline-none focus:border-indigo transition-colors placeholder:text-text-gray-2"
+              className="w-full border border-ink/20 rounded-[10px] px-4 py-3 text-[15px] font-pt-narrow bg-white outline-none focus:border-indigo transition-colors placeholder:text-text-gray-2 font-medium"
             />
           </div>
 
@@ -200,20 +222,20 @@ function LoginForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-2 border-ink rounded-[10px] px-4 py-3 text-[15px] font-pt-narrow bg-white outline-none focus:border-indigo transition-colors placeholder:text-text-gray-2"
+              className="w-full border border-ink/20 rounded-[10px] px-4 py-3 text-[15px] font-pt-narrow bg-white outline-none focus:border-indigo transition-colors placeholder:text-text-gray-2 font-medium"
             />
           </div>
 
           {/* Error */}
           {error && (
-            <div className="bg-red-50 border-2 border-red-300 rounded-[10px] px-4 py-2.5 text-red-700 font-pt-narrow text-[14px] font-bold break-words">
+            <div className="bg-red-50 border border-red-200 rounded-[10px] px-4 py-2.5 text-red-700 font-pt-narrow text-[14px] font-bold break-words">
               {error}
             </div>
           )}
 
           {/* Success */}
           {success && (
-            <div className="bg-green-50 border-2 border-green-300 rounded-[10px] px-4 py-2.5 text-green-800 font-pt-narrow text-[14px] font-bold break-words">
+            <div className="bg-green-50 border border-green-200 rounded-[10px] px-4 py-2.5 text-green-800 font-pt-narrow text-[14px] font-bold break-words">
               {success}
             </div>
           )}
@@ -222,15 +244,14 @@ function LoginForm() {
             id="auth-submit-btn"
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full btn-neo justify-center py-3 text-[18px] bg-indigo text-white border-ink hover:bg-indigo/90 disabled:opacity-60 mt-1 cursor-pointer"
-            style={{ boxShadow: "4px 4px 0 #171717" }}
+            className="w-full py-3 text-[17px] bg-indigo text-white hover:bg-indigo/90 font-bold font-pt-narrow rounded-[10px] disabled:opacity-60 mt-1 cursor-pointer transition-all shadow-sm border border-indigo/20"
           >
             {loading ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
           </button>
         </form>
 
         {/* Mode switcher */}
-        <p className="mt-6 text-center font-pt-narrow text-[15px] text-text-gray">
+        <p className="mt-6 text-center font-pt-narrow text-[15px] text-text-gray font-medium">
           {mode === "login" ? (
             <>
               No account yet?{" "}
@@ -241,7 +262,7 @@ function LoginForm() {
                   setError(null);
                   setSuccess(null);
                 }}
-                className="text-indigo font-bold hover:underline"
+                className="text-indigo font-bold hover:underline cursor-pointer"
               >
                 Sign up free
               </button>
@@ -256,7 +277,7 @@ function LoginForm() {
                   setError(null);
                   setSuccess(null);
                 }}
-                className="text-indigo font-bold hover:underline"
+                className="text-indigo font-bold hover:underline cursor-pointer"
               >
                 Log in
               </button>
@@ -268,7 +289,7 @@ function LoginForm() {
       {/* Back link */}
       <a
         href="/"
-        className="mt-8 font-pt-narrow text-[14px] text-text-gray hover:text-ink transition-colors"
+        className="mt-8 font-pt-narrow text-[15px] text-text-gray hover:text-ink transition-colors font-medium"
       >
         ← Back to scribe.txt
       </a>

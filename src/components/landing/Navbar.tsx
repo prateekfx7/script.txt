@@ -23,6 +23,13 @@ export default function Navbar() {
   const sub = user?.user_metadata?.subscription;
   const isSubscriber = sub?.status === "active";
 
+  const username =
+    user?.user_metadata?.username ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
+    "Account";
+
   return (
     <nav className="flex items-center justify-between py-[26px]">
       {/* Logo */}
@@ -42,40 +49,45 @@ export default function Navbar() {
         {!loading && (
           <>
             {user ? (
-              // Logged in: Avatar Dropdown
+              // Logged in: Username Dropdown (no profile image)
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 cursor-pointer group"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] hover:bg-black/5 font-pt-narrow font-bold text-[16px] text-ink cursor-pointer group transition-all"
                   id="nav-user-avatar"
                 >
-                  {/* Avatar Circle */}
-                  <div className="w-9 h-9 rounded-full bg-indigo text-white flex items-center justify-center text-[15px] font-bold font-pt-narrow border-2 border-ink shadow-[2px_2px_0_#171717] group-hover:shadow-[1px_1px_0_#171717] group-hover:translate-x-[1px] group-hover:translate-y-[1px] transition-all">
-                    {(user.email || "U")[0].toUpperCase()}
-                  </div>
-                  <span className="hidden sm:inline-block font-pt-narrow font-bold text-[14px] text-ink group-hover:text-indigo transition-colors">
-                    {user.email?.split("@")[0]}
+                  <span className="text-ink group-hover:text-indigo transition-colors font-bold">
+                    {username}
                   </span>
                   {/* Chevron */}
-                  <svg className={`w-3.5 h-3.5 text-text-gray transition-transform ${dropdownOpen ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  <svg
+                    className={`w-3.5 h-3.5 text-text-gray transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-[calc(100%+8px)] w-[220px] bg-white border-2 border-ink rounded-[14px] shadow-[4px_4px_0_#171717] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute right-0 top-[calc(100%+8px)] w-[220px] bg-white border border-ink/20 rounded-[14px] shadow-sm overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 font-pt-narrow">
                     {/* User info header */}
-                    <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                      <p className="font-pt-narrow font-bold text-[14px] text-ink truncate">{user.email}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
+                    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                      <p className="font-pt-narrow font-bold text-[15px] text-ink truncate">{username}</p>
+                      <p className="font-pt-narrow text-[12.5px] text-text-gray truncate">{user.email}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5">
                         {isSubscriber ? (
-                          <span className="text-[11px] font-bold font-pt-narrow text-indigo bg-indigo/10 px-2 py-0.5 rounded-full">
-                            👑 Pro Member
+                          <span className="text-[11.5px] font-bold font-pt-narrow text-indigo bg-indigo/10 px-2 py-0.5 rounded-full">
+                            Pro Member
                           </span>
                         ) : (
-                          <span className="text-[11px] font-bold font-pt-narrow text-green-800 bg-green-100 px-2 py-0.5 rounded-full">
-                            🆓 Free Plan
+                          <span className="text-[11.5px] font-bold font-pt-narrow text-green-800 bg-green-100 px-2 py-0.5 rounded-full">
+                            Free Plan
                           </span>
                         )}
                       </div>
@@ -86,33 +98,33 @@ export default function Navbar() {
                       <Link
                         href="/dashboard"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 font-pt-narrow font-bold text-[14px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
+                        className="flex items-center px-4 py-2 font-pt-narrow font-bold text-[14.5px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
                       >
-                        <span className="text-[16px]">📊</span> Dashboard
+                        Dashboard
                       </Link>
                       <Link
                         href="/dashboard"
                         onClick={() => { setDropdownOpen(false); }}
-                        className="flex items-center gap-2.5 px-4 py-2.5 font-pt-narrow font-bold text-[14px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
+                        className="flex items-center px-4 py-2 font-pt-narrow font-bold text-[14.5px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
                       >
-                        <span className="text-[16px]">📝</span> My Transcripts
+                        My Transcripts
                       </Link>
                       <Link
                         href="/#pricing"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-2.5 font-pt-narrow font-bold text-[14px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
+                        className="flex items-center px-4 py-2 font-pt-narrow font-bold text-[14.5px] text-ink hover:bg-indigo/5 hover:text-indigo transition-colors"
                       >
-                        <span className="text-[16px]">👑</span> {isSubscriber ? "Manage Plan" : "Upgrade to Pro"}
+                        {isSubscriber ? "Manage Plan" : "Upgrade to Pro"}
                       </Link>
                     </div>
 
                     {/* Sign Out */}
-                    <div className="border-t border-gray-200 py-1">
+                    <div className="border-t border-gray-100 py-1">
                       <button
                         onClick={() => { signOut(); setDropdownOpen(false); }}
-                        className="flex items-center gap-2.5 w-full text-left px-4 py-2.5 font-pt-narrow font-bold text-[14px] text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        className="flex items-center w-full text-left px-4 py-2 font-pt-narrow font-bold text-[14.5px] text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                       >
-                        <span className="text-[16px]">🚪</span> Sign Out
+                        Sign Out
                       </button>
                     </div>
                   </div>

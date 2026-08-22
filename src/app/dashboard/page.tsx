@@ -305,21 +305,21 @@ export default function DashboardPage() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "account" && user && (
         <div className="max-w-lg">
-          <div className="bg-white border-2 border-ink rounded-[16px] p-6 shadow-neo-sm">
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b-2 border-gray-100">
-              {/* Avatar */}
-              <div className="w-16 h-16 rounded-full bg-indigo text-white flex items-center justify-center text-[28px] font-bold font-pt-narrow border-2 border-ink shadow-neo-sm shrink-0">
-                {(user.email || "U")[0].toUpperCase()}
-              </div>
-              <div>
-                <h2 className="font-pt-narrow font-bold text-[22px] text-ink">
-                  {user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
-                </h2>
-                <p className="font-pt-narrow text-[14px] text-text-gray">{user.email}</p>
-              </div>
+          <div className="bg-white border border-ink/20 rounded-[16px] p-6 shadow-sm">
+            <div className="mb-6 pb-5 border-b border-gray-100">
+              <h2 className="font-pt-narrow font-bold text-[24px] text-ink">
+                {user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
+              </h2>
+              <p className="font-pt-narrow text-[14px] text-text-gray font-medium">{user.email}</p>
             </div>
 
             <div className="space-y-4">
+              <div>
+                <label className="font-pt-narrow font-bold text-[13px] text-text-gray uppercase tracking-wide">Username</label>
+                <p className="font-pt-narrow text-[16px] text-ink mt-0.5 font-bold">
+                  {user.user_metadata?.username || user.user_metadata?.full_name || user.email?.split("@")[0] || "—"}
+                </p>
+              </div>
               <div>
                 <label className="font-pt-narrow font-bold text-[13px] text-text-gray uppercase tracking-wide">Email</label>
                 <p className="font-pt-narrow text-[16px] text-ink mt-0.5">{user.email}</p>

@@ -42,20 +42,28 @@ export async function GET(req: NextRequest) {
     results.inngest = { ok: false, latencyMs: 0, error: "Not reachable at :8288" };
   }
 
-  // ── 4. OpenAI Whisper API ───────────────────────────────────────────────────
+  // ── 4. AI Whisper API (Groq or OpenAI) ──────────────────────────────────
   try {
     const t0 = Date.now();
-    const apiKey = process.env.OPENAI_API_KEY ?? "";
-    const baseUrl = process.env.TRANSCRIBE_API_BASE_URL ?? "https://api.openai.com/v1";
+    const isGroq = !!process.env.GROQ_API_KEY || (process.env.TRANSCRIBE_API_BASE_URL ?? "").includes("groq.com");
+    const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "";
+    const baseUrl =
+      process.env.TRANSCRIBE_API_BASE_URL ||
+      (isGroq ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1");
+
     const res = await fetch(`${baseUrl}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(5000),
     });
-    results.openai = res.ok
+    const transcribeResult = res.ok
       ? { ok: true, latencyMs: Date.now() - t0 }
-      : { ok: false, latencyMs: Date.now() - t0, error: `HTTP ${res.status}` };
+      : { ok: false, latencyMs: Date.now() - t0, error: `HTTP ${res.status} (${isGroq ? "Groq" : "OpenAI"})` };
+    results.ai_transcribe = transcribeResult;
+    results.openai = transcribeResult;
   } catch (e) {
-    results.openai = { ok: false, latencyMs: 0, error: String(e) };
+    const transcribeErr = { ok: false, latencyMs: 0, error: String(e) };
+    results.ai_transcribe = transcribeErr;
+    results.openai = transcribeErr;
   }
 
   // ── 5. flags.json ────────────────────────────────────────────────────────────
