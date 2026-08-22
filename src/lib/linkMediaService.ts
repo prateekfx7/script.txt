@@ -9,6 +9,7 @@
 
 import { YoutubeTranscript } from "youtube-transcript";
 import { getSubtitles } from "youtube-caption-extractor";
+import { fetchInstagramVideoBuffer as resolveInstagramVideo } from "./instagramResolver";
 
 export interface LinkPlatformInfo {
   platform: "youtube" | "instagram" | "gdrive" | "dropbox" | "direct_media" | "other";
@@ -208,6 +209,18 @@ export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{
     } catch (err) {
       console.warn(`Instagram info fetch error on ${ep}:`, err);
     }
+  }
+
+  // Fallback to robust multi-strategy extractor if internal APIs fail
+  console.log("Internal APIs failed, falling back to multi-strategy resolver for shortcode:", shortcode);
+  const fallbackBuffer = await resolveInstagramVideo(shortcode, `https://www.instagram.com/reel/${shortcode}/`);
+  if (fallbackBuffer) {
+    return {
+      buffer: fallbackBuffer,
+      fileName: `instagram_${shortcode}.mp4`,
+      displayName: `Instagram Reel`,
+      author: undefined,
+    };
   }
 
   throw new Error("Could not retrieve video stream from Instagram. Please make sure the reel is public.");
