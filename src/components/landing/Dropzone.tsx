@@ -256,54 +256,58 @@ export default function Dropzone() {
             <div className="w-full bg-white border border-ink/20 rounded-[24px] p-6 sm:p-8 shadow-sm animate-in fade-in zoom-in-95 duration-200 font-pt-narrow">
               {!uploading ? (
                 <>
-                  {/* Selected Media Header */}
-                  <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-5 mb-5">
+                  {/* Minimal Selected Media Header */}
+                  <div className="flex items-center justify-between gap-3 border-b border-gray-100 pb-4 mb-5">
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-12 h-12 rounded-[14px] bg-indigo/10 border border-indigo/20 flex items-center justify-center text-indigo shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-indigo/10 flex items-center justify-center text-indigo shrink-0">
                         {linkInfo?.platform === "youtube" ? (
-                          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                           </svg>
                         ) : linkInfo?.platform === "instagram" ? (
-                          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
                             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
                             <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
                           </svg>
                         ) : linkInfo?.platform === "gdrive" ? (
-                          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                           </svg>
+                        ) : selectedFile?.type.startsWith("video") ? (
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                          </svg>
                         ) : (
-                          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M10 13a5 5 0 0 0 7.07 0l1.42-1.41a5 5 0 0 0-7.07-7.07L10 6"/>
-                            <path d="M14 11a5 5 0 0 0-7.07 0L5.5 12.42a5 5 0 0 0 7.07 7.07L14 18"/>
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 18V5l12-2v13"/>
+                            <circle cx="6" cy="18" r="3"/>
+                            <circle cx="18" cy="16" r="3"/>
                           </svg>
                         )}
                       </div>
-                      <div className="overflow-hidden">
-                        <div className="font-pt-narrow font-bold text-[18px] text-ink truncate">
-                          {selectedFile ? selectedFile.name : linkInfo?.displayName || selectedLink}
+                      <div className="overflow-hidden text-left">
+                        <div className="font-sf-pro font-medium text-[14.5px] text-ink truncate max-w-[280px] sm:max-w-[360px]">
+                          {selectedFile
+                            ? selectedFile.name
+                            : linkInfo?.platform === "instagram"
+                            ? "Instagram Reel"
+                            : linkInfo?.platform === "youtube"
+                            ? "YouTube Video"
+                            : selectedLink}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <span className="text-[13px] font-bold font-pt-narrow text-indigo bg-indigo/10 px-2.5 py-0.5 rounded-[6px]">
-                            {selectedFile
-                              ? formatFileSize(selectedFile.size)
-                              : linkInfo?.displayName || "Online Media Link"}
-                          </span>
-                          {mediaDuration !== null && (
-                            <span className="text-[13px] font-bold font-pt-narrow text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-[6px]">
-                              {formatDuration(mediaDuration)}
-                            </span>
-                          )}
-                          <span className="text-[13px] text-text-gray font-pt-narrow font-medium">Ready to transcribe</span>
+                        <div className="flex items-center gap-2 text-[12px] text-text-gray font-sf-pro font-normal">
+                          {selectedFile && <span>{formatFileSize(selectedFile.size)}</span>}
+                          {mediaDuration !== null && <span>• {formatDuration(mediaDuration)}</span>}
+                          {!selectedFile && <span>Ready to transcribe</span>}
                         </div>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={resetSelection}
-                      className="text-text-gray hover:text-ink font-bold font-pt-narrow text-[14px] underline hover:no-underline shrink-0 cursor-pointer"
+                      className="text-text-gray hover:text-ink font-sf-pro font-medium text-[13px] hover:underline shrink-0 cursor-pointer transition-colors"
                     >
                       Change
                     </button>
