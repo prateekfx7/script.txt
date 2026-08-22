@@ -55,7 +55,6 @@ export default function AdminOverviewPage() {
   };
 
   return (
-  return (
     <div className="font-sfpro">
       <h1 className="text-[24px] font-bold text-ink mb-1 tracking-tight">Overview</h1>
       <p className="text-[14px] text-text-gray-2 mb-8">Platform health at a glance</p>
