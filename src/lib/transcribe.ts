@@ -107,8 +107,19 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
-    const errObj = err as { status?: number; message?: string; code?: string; error?: { message?: string } };
-    const errMessage = (errObj.error?.message || errObj.message || "").toLowerCase();
+    // Detect 401 Unauthorized / Invalid API Key
+    const isAuthError =
+      errObj.status === 401 ||
+      errMessage.includes("invalid api key") ||
+      errMessage.includes("unauthorized") ||
+      errMessage.includes("invalid_api_key");
+
+    if (isAuthError) {
+      const providerName = config.provider === "groq" ? "Groq" : "OpenAI";
+      throw new Error(
+        `Invalid ${providerName} API Key. If you are on Vercel/Production, make sure GROQ_API_KEY is updated in your Vercel Project Settings > Environment Variables, then redeploy.`
+      );
+    }
 
     // Detect 429 Rate Limit Exceeded
     const isRateLimit =
