@@ -5,6 +5,7 @@ import { getUserIdFromRequest } from "@/lib/getUserId";
 import {
   parseMediaLink,
   extractYoutubeTranscript,
+  fetchYoutubeAuthor,
   fetchInstagramVideoBuffer,
   downloadDirectMedia,
 } from "@/lib/linkMediaService";
@@ -23,14 +24,18 @@ export async function POST(req: NextRequest) {
 
     // ── 1. YOUTUBE TRANSCRIPTION (INSTANT NATIVE CAPTIONS) ──
     if (info.platform === "youtube" && info.id) {
-      const segments = await extractYoutubeTranscript(info.id, language);
+      const [segments, authorName] = await Promise.all([
+        extractYoutubeTranscript(info.id, language),
+        fetchYoutubeAuthor(info.id),
+      ]);
 
       if (segments && segments.length > 0) {
         const fullText = segments.map((s) => s.text).join(" ");
+        const finalDisplayName = authorName || `YouTube Video`;
 
         const job = await prisma.job.create({
           data: {
-            fileName: `YouTube (${info.id})`,
+            fileName: finalDisplayName,
             fileUrl: info.cleanUrl,
             sourceType: "link",
             status: "done",
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "This YouTube video has no closed captions enabled. Drop the video or audio file directly into the upload box for instant Groq Whisper AI transcription!",
+            "This YouTube video has no closed captions enabled. Drop the video or audio file directly into the upload box for instant Whisper AI transcription!",
         },
         { status: 422 }
       );
@@ -64,12 +69,12 @@ export async function POST(req: NextRequest) {
     // ── 2. INSTAGRAM REELS (AUTOMATED DIRECT EXTRACTION & GROQ WHISPER) ──
     if (info.platform === "instagram" && info.id) {
       try {
-        const { buffer, fileName } = await fetchInstagramVideoBuffer(info.id);
+        const { buffer, fileName, displayName } = await fetchInstagramVideoBuffer(info.id);
         const result = await transcribeBuffer(buffer, fileName, "video/mp4", language);
 
         const job = await prisma.job.create({
           data: {
-            fileName: `Instagram Reel (${info.id})`,
+            fileName: displayName || `Instagram Reel`,
             fileUrl: info.cleanUrl,
             sourceType: "link",
             status: "done",

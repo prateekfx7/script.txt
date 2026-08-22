@@ -327,13 +327,13 @@ export default function Dropzone() {
                     </div>
                   )}
 
-                  {/* Language Selection Step */}
+                  {/* Minimal Language Selection Button with SF Pro Display */}
                   <div className="mb-6">
                     <label
                       htmlFor="modal-language-select"
-                      className="block font-pt-narrow font-bold text-[16px] text-ink mb-1.5"
+                      className="block font-sf-pro font-medium text-[13px] text-text-gray uppercase tracking-wider mb-2"
                     >
-                      Spoken Language:
+                      Language
                     </label>
 
                     <div className="relative">
@@ -341,16 +341,16 @@ export default function Dropzone() {
                         id="modal-language-select"
                         value={selectedLanguage}
                         onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className="w-full border border-ink/20 bg-white rounded-[12px] py-3 pl-4 pr-10 font-pt-narrow font-bold text-[16px] text-ink shadow-sm outline-none cursor-pointer hover:border-ink/40 transition-colors appearance-none"
+                        className="w-full border border-ink/15 bg-white hover:bg-gray-50/80 rounded-[12px] py-2.5 pl-3.5 pr-10 font-sf-pro font-medium text-[14.5px] text-ink shadow-sm outline-none cursor-pointer hover:border-ink/30 transition-all appearance-none"
                       >
                         {SUPPORTED_LANGUAGES.map((lang) => (
-                          <option key={lang.code} value={lang.code}>
+                          <option key={lang.code} value={lang.code} className="font-sf-pro font-normal">
                             {lang.name}
                           </option>
                         ))}
                       </select>
-                      <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-ink">
-                        <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+                      <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-text-gray">
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                           <path
                             fillRule="evenodd"
                             d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"

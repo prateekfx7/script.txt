@@ -55,7 +55,7 @@ export function parseMediaLink(rawUrl: string): LinkPlatformInfo {
       platform: "youtube",
       id: ytMatch[1],
       cleanUrl,
-      displayName: `YouTube Video (${ytMatch[1]})`,
+      displayName: `YouTube Video`,
     };
   }
 
@@ -66,7 +66,7 @@ export function parseMediaLink(rawUrl: string): LinkPlatformInfo {
       platform: "instagram",
       id: igMatch[1],
       cleanUrl,
-      displayName: `Instagram Reel (${igMatch[1]})`,
+      displayName: `Instagram Reel`,
     };
   }
 
@@ -116,9 +116,35 @@ export function parseMediaLink(rawUrl: string): LinkPlatformInfo {
 }
 
 /**
+ * Fetches YouTube video creator/channel name via oEmbed
+ */
+export async function fetchYoutubeAuthor(youtubeId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeId}&format=json`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.author_name) {
+        const cleanAuthor = data.author_name.trim().replace(/^@/, "");
+        return `Video by @${cleanAuthor}`;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+/**
  * Directly extracts and downloads the video buffer from an Instagram Reel / Post
  */
-export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{ buffer: Buffer; fileName: string }> {
+export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{
+  buffer: Buffer;
+  fileName: string;
+  displayName: string;
+  author?: string;
+}> {
   const pk = shortcodeToPk(shortcode);
   const sessionId = process.env.INSTAGRAM_SESSION_ID;
 
@@ -156,6 +182,9 @@ export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{ bu
           item?.video_versions?.[0]?.url ||
           item?.carousel_media?.[0]?.video_versions?.[0]?.url;
 
+        const username = item?.user?.username || item?.owner?.username;
+        const displayName = username ? `Video by @${username}` : `Instagram Reel`;
+
         if (videoUrl) {
           const vRes = await fetch(videoUrl, {
             headers: { "User-Agent": "Mozilla/5.0" },
@@ -169,6 +198,8 @@ export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{ bu
               return {
                 buffer,
                 fileName: `instagram_${shortcode}.mp4`,
+                displayName,
+                author: username ? `@${username}` : undefined,
               };
             }
           }
