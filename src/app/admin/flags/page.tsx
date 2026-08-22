@@ -72,12 +72,12 @@ export default function AdminFlagsPage() {
   };
 
   return (
-    <div>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Feature Flags</h1>
-      <p style={{ color: "#7A7A76", fontSize: 14, marginBottom: 28 }}>Global switches stored in flags.json — changes take effect immediately</p>
+    <div className="font-sfpro">
+      <h1 className="text-[24px] font-bold text-ink mb-1 tracking-tight">Feature Flags</h1>
+      <p className="text-[14px] text-text-gray-2 mb-8">Global switches stored in flags.json — changes take effect immediately</p>
 
-      {loading ? <p style={{ color: "#7A7A76", fontSize: 14 }}>Loading…</p> : flags && (
-        <div style={{ background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" }}>
+      {loading ? <p className="text-[14px] text-text-gray-2 animate-pulse">Loading…</p> : flags && (
+        <div className="bg-white border border-gray-100 rounded-[14px] shadow-sm overflow-hidden">
           {Object.keys(FLAG_META).map((key, i, arr) => {
             const meta = FLAG_META[key];
             const val = flags[key];
@@ -86,19 +86,15 @@ export default function AdminFlagsPage() {
             return (
               <div
                 key={key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "18px 20px",
-                  borderBottom: isLast ? "none" : "1px solid #f0f0f0",
-                  gap: 20,
-                }}
+                className={`flex items-center px-6 py-5 hover:bg-gray-50 transition-colors gap-5 ${
+                  isLast ? "" : "border-b border-gray-100"
+                }`}
               >
                 {/* Label */}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#171717", marginBottom: 2 }}>{meta.label}</p>
-                  <p style={{ fontSize: 12, color: "#7A7A76" }}>{meta.desc}</p>
-                  <p style={{ fontSize: 10, color: "#aaa", marginTop: 2, fontFamily: "monospace" }}>{key}</p>
+                <div className="flex-1">
+                  <p className="text-[15px] font-bold text-ink mb-1 tracking-tight">{meta.label}</p>
+                  <p className="text-[13px] text-text-gray-2">{meta.desc}</p>
+                  <p className="text-[11px] text-gray-400 mt-1 font-mono tracking-wider">{key}</p>
                 </div>
 
                 {/* Control */}
@@ -106,47 +102,31 @@ export default function AdminFlagsPage() {
                   <button
                     onClick={() => toggle(key, !val)}
                     disabled={saving === key}
-                    style={{
-                      width: 44,
-                      height: 24,
-                      borderRadius: 12,
-                      border: "none",
-                      background: val ? "#3222DD" : "#e5e5e5",
-                      cursor: saving === key ? "not-allowed" : "pointer",
-                      position: "relative",
-                      transition: "background 0.2s",
-                      opacity: saving === key ? 0.5 : 1,
-                      flexShrink: 0,
-                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo ${
+                      val ? "bg-indigo" : "bg-gray-200"
+                    } ${saving === key ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
                     aria-label={`Toggle ${meta.label}`}
                   >
                     <span
-                      style={{
-                        position: "absolute",
-                        top: 3,
-                        left: val ? 22 : 3,
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: "#fff",
-                        transition: "left 0.2s",
-                      }}
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                        val ? "translate-x-5" : "translate-x-0"
+                      }`}
                     />
                   </button>
                 ) : (
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                  <div className="flex items-center gap-3 shrink-0">
                     <input
                       type="number"
                       value={numEdit[key] ?? String(val)}
                       onChange={(e) => setNumEdit((prev) => ({ ...prev, [key]: e.target.value }))}
                       onKeyDown={(e) => e.key === "Enter" && saveNum(key)}
                       min={0}
-                      style={{ width: 72, border: "1px solid #e5e5e5", borderRadius: 6, padding: "5px 8px", fontSize: 13, fontFamily: "monospace", outline: "none" }}
+                      className="w-20 border border-gray-200 rounded-[8px] px-3 py-1.5 text-[14px] font-mono outline-none focus:border-indigo focus:ring-1 focus:ring-indigo transition-all"
                     />
                     <button
                       onClick={() => saveNum(key)}
                       disabled={saving === key}
-                      style={{ padding: "5px 10px", background: "#171717", border: "none", borderRadius: 6, color: "#fff", fontSize: 12, fontWeight: 600, cursor: saving === key ? "not-allowed" : "pointer", fontFamily: "inherit" }}
+                      className="px-4 py-1.5 bg-ink border border-ink rounded-[8px] text-white font-bold text-[13px] hover:bg-black transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {saving === key ? "…" : "Save"}
                     </button>
