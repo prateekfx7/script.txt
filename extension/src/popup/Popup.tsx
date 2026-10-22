@@ -244,6 +244,7 @@ export const Popup: React.FC = () => {
                 setSelectedFile(file);
                 setError(null);
               }}
+              onError={(msg) => setError(msg)}
               disabled={isTranscribing}
             />
           ) : (

@@ -1,29 +1,56 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { UploadCloud, FileAudio, FileVideo, X } from "lucide-react";
 
 interface UploadTabProps {
   selectedFile: File | null;
   onFileSelect: (file: File | null) => void;
+  onError?: (msg: string) => void;
   disabled?: boolean;
 }
 
 export const UploadTab: React.FC<UploadTabProps> = ({
   selectedFile,
   onFileSelect,
+  onError,
   disabled,
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDrag = (e: React.DragEvent) => {
+  const validateAndSet = (file: File) => {
+    const validExtensions = [".mp3", ".wav", ".m4a", ".mp4", ".mov", ".ogg", ".webm", ".aac", ".flac"];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    const isAudioOrVideo = file.type.startsWith("audio/") || file.type.startsWith("video/") || validExtensions.includes(ext);
+
+    if (isAudioOrVideo) {
+      onFileSelect(file);
+    } else {
+      const msg = "Please upload an audio or video file (.mp3, .wav, .m4a, .mp4, .mov)";
+      if (onError) {
+        onError(msg);
+      } else {
+        alert(msg);
+      }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      validateAndSet(e.target.files[0]);
+    }
+    // Reset so selecting the same file triggers onChange
+    e.target.value = "";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled) return;
-    if (e.type === "dragover" || e.type === "dragenter") {
-      setIsDragOver(true);
-    } else if (e.type === "dragleave") {
-      setIsDragOver(false);
-    }
+    if (!disabled) setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -33,18 +60,7 @@ export const UploadTab: React.FC<UploadTabProps> = ({
     if (disabled) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      validateAndSet(file);
-    }
-  };
-
-  const validateAndSet = (file: File) => {
-    const validExtensions = [".mp3", ".wav", ".m4a", ".mp4", ".mov", ".ogg", ".webm"];
-    const ext = "." + file.name.split(".").pop()?.toLowerCase();
-    if (validExtensions.includes(ext) || file.type.startsWith("audio/") || file.type.startsWith("video/")) {
-      onFileSelect(file);
-    } else {
-      alert("Please upload a valid audio or video file (.mp3, .wav, .m4a, .mp4, .mov)");
+      validateAndSet(e.dataTransfer.files[0]);
     }
   };
 
@@ -55,39 +71,41 @@ export const UploadTab: React.FC<UploadTabProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const isVideo = selectedFile?.type.startsWith("video/") || selectedFile?.name.endsWith(".mp4") || selectedFile?.name.endsWith(".mov");
+  const isVideo =
+    selectedFile?.type.startsWith("video/") ||
+    selectedFile?.name.endsWith(".mp4") ||
+    selectedFile?.name.endsWith(".mov");
 
   return (
     <div className="flex flex-col gap-2">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={(e) => e.target.files?.[0] && validateAndSet(e.target.files[0])}
-        accept="audio/*,video/*,.mp3,.wav,.m4a,.mp4,.mov"
-        className="hidden"
-        disabled={disabled}
-      />
-
       {!selectedFile ? (
         <div
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => !disabled && fileInputRef.current?.click()}
-          className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-neo cursor-pointer transition-all ${
+          className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-neo transition-all ${
             isDragOver
               ? "border-indigo bg-indigo/5 scale-[0.99]"
               : "border-ink bg-white hover:bg-btn-gray/20 shadow-neo-sm"
-          } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
         >
-          <div className="w-12 h-12 rounded-full bg-btn-gray border-2 border-ink flex items-center justify-center mb-2 shadow-neo-sm">
+          {/* Native file input covering the entire drop zone */}
+          <input
+            type="file"
+            onChange={handleInputChange}
+            accept="audio/*,video/*,.mp3,.wav,.m4a,.mp4,.mov,.ogg,.webm"
+            disabled={disabled}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            title="Choose a file to upload"
+          />
+
+          <div className="w-12 h-12 rounded-full bg-btn-gray border-2 border-ink flex items-center justify-center mb-2 shadow-neo-sm pointer-events-none">
             <UploadCloud className="w-6 h-6 text-ink" />
           </div>
-          <p className="font-bold text-sm text-ink mb-1 text-center">
+          <p className="font-bold text-sm text-ink mb-1 text-center pointer-events-none">
             Click to upload or drag & drop
           </p>
-          <p className="text-[11px] font-semibold text-text-gray text-center">
+          <p className="text-[11px] font-semibold text-text-gray text-center pointer-events-none">
             MP4, MOV, MP3, WAV, M4A (100% processed locally)
           </p>
         </div>
@@ -108,9 +126,10 @@ export const UploadTab: React.FC<UploadTabProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={() => onFileSelect(null)}
             disabled={disabled}
-            className="p-1 rounded-md hover:bg-btn-gray text-text-gray hover:text-ink transition-colors"
+            className="p-1 rounded-md hover:bg-btn-gray text-text-gray hover:text-ink transition-colors cursor-pointer"
             title="Remove file"
           >
             <X className="w-4 h-4" />

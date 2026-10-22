@@ -35,9 +35,17 @@ async function getTranscriber(onProgress?: (status: string, progress?: number, i
   return transcriberPromise;
 }
 
+// Signal to service worker that offscreen listener is alive
+if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+  chrome.runtime.sendMessage({ type: "OFFSCREEN_READY" }).catch(() => {});
+}
+
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, _sendResponse) => {
   if (message.type === "START_TRANSCRIBE") {
-    handleTranscription(message);
+    // Only execute if message was forwarded specifically to offscreen
+    if (message.target === "offscreen") {
+      handleTranscription(message);
+    }
   }
 });
 

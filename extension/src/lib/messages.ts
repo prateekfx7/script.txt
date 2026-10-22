@@ -7,6 +7,10 @@ export type ExtensionMessage =
       sampleRate: number;
       language?: string;
       fileName: string;
+      target?: "offscreen";
+    }
+  | {
+      type: "OFFSCREEN_READY";
     }
   | {
       type: "TRANSCRIBE_PROGRESS";
