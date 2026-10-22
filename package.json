@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build:extension": "cd extension && npm run build",
+    "package:extension": "cd extension && npm run build && cd dist && zip -FS -r ../scribe-txt-extension.zip .",
+    "dev:extension": "cd extension && npm run dev"
   },
   "dependencies": {
     "@distube/ytdl-core": "^4.16.12",

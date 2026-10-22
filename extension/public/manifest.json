@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Scribe.txt — 100% On-Device AI Speech-to-Text",
+  "version": "1.0.0",
+  "description": "Transcribe any video, podcast, or audio file 100% on-device with zero server costs and zero data tracking.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Scribe.txt — Speech-to-Text",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "offscreen",
+    "activeTab",
+    "tabs"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
