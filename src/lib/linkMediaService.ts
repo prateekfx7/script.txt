@@ -15,110 +15,13 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-export interface LinkPlatformInfo {
-  platform: "youtube" | "instagram" | "gdrive" | "dropbox" | "direct_media" | "other";
-  id?: string;
-  cleanUrl: string;
-  displayName: string;
-  directDownloadUrl?: string;
-}
+import {
+  parseMediaLink,
+  shortcodeToPk,
+  type LinkPlatformInfo,
+} from "./urlUtils";
 
-const ENCODING_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-/**
- * Converts Instagram shortcode (e.g. DZqla5XBHHy) to numeric media PK
- */
-export function shortcodeToPk(shortcode: string): string {
-  let clean = shortcode;
-  if (clean.length > 28) {
-    clean = clean.slice(0, -28);
-  }
-  let pk = BigInt(0);
-  for (const c of clean) {
-    const idx = BigInt(ENCODING_CHARS.indexOf(c));
-    if (idx === BigInt(-1)) continue;
-    pk = pk * BigInt(64) + idx;
-  }
-  return pk.toString();
-}
-
-/**
- * Parses and detects media links
- */
-export function parseMediaLink(rawUrl: string): LinkPlatformInfo {
-  let cleanUrl = rawUrl.trim();
-  if (!/^https?:\/\//i.test(cleanUrl)) {
-    cleanUrl = `https://${cleanUrl}`;
-  }
-
-  // 1. YouTube
-  const ytMatch = cleanUrl.match(
-    /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i
-  );
-  if (ytMatch?.[1]) {
-    return {
-      platform: "youtube",
-      id: ytMatch[1],
-      cleanUrl,
-      displayName: `YouTube Video`,
-    };
-  }
-
-  // 2. Instagram
-  const igMatch = cleanUrl.match(/instagram\.com\/(?:reel|reels|p|tv)\/([a-zA-Z0-9_-]+)/i);
-  if (igMatch?.[1]) {
-    return {
-      platform: "instagram",
-      id: igMatch[1],
-      cleanUrl,
-      displayName: `Instagram Reel`,
-    };
-  }
-
-  // 3. Google Drive
-  const driveMatch = cleanUrl.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/i);
-  if (driveMatch?.[1]) {
-    return {
-      platform: "gdrive",
-      id: driveMatch[1],
-      cleanUrl,
-      displayName: `Google Drive File`,
-      directDownloadUrl: `https://drive.usercontent.google.com/download?id=${driveMatch[1]}&export=download`,
-    };
-  }
-
-  // 4. Dropbox
-  if (cleanUrl.toLowerCase().includes("dropbox.com")) {
-    let dlUrl = cleanUrl.replace(/(\?|&)dl=0/i, "$1dl=1");
-    if (!dlUrl.includes("dl=1") && !dlUrl.includes("raw=1")) {
-      dlUrl += (dlUrl.includes("?") ? "&" : "?") + "dl=1";
-    }
-    return {
-      platform: "dropbox",
-      cleanUrl,
-      displayName: `Dropbox File`,
-      directDownloadUrl: dlUrl,
-    };
-  }
-
-  // 5. Direct Audio/Video URLs
-  if (/\.(mp3|mp4|m4a|wav|webm|ogg|aac|flac)(\?.*)?$/i.test(cleanUrl)) {
-    const fileName = cleanUrl.split("/").pop()?.split("?")[0] || "audio.mp3";
-    return {
-      platform: "direct_media",
-      cleanUrl,
-      displayName: fileName,
-      directDownloadUrl: cleanUrl,
-    };
-  }
-
-  return {
-    platform: "other",
-    cleanUrl,
-    displayName: "Online Media Link",
-    directDownloadUrl: cleanUrl,
-  };
-}
+export { parseMediaLink, shortcodeToPk, type LinkPlatformInfo };
 
 /**
  * Fetches YouTube video creator/channel name via oEmbed
@@ -142,14 +45,118 @@ export async function fetchYoutubeAuthor(youtubeId: string): Promise<string | nu
 }
 
 /**
- * Directly extracts and downloads the video buffer from an Instagram Reel / Post
+ * Directly extracts and downloads audio from an Instagram Reel / Post
+ * Uses yt-dlp first (fast, reliable, handles modern Instagram CDN without cookies),
+ * with fallbacks to internal APIs.
  */
-export async function fetchInstagramVideoBuffer(shortcode: string): Promise<{
+export async function fetchInstagramVideoBuffer(
+  shortcode: string,
+  rawUrl?: string
+): Promise<{
   buffer: Buffer;
   fileName: string;
   displayName: string;
   author?: string;
 }> {
+  const targetUrl = rawUrl || `https://www.instagram.com/reel/${shortcode}/`;
+
+  // ── Strategy 1: yt-dlp (Native, fastest, handles Instagram without cookies) ──
+  try {
+    const tempId = `ig_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
+
+    const result = await new Promise<{
+      buffer: Buffer;
+      fileName: string;
+      displayName: string;
+      author?: string;
+    }>((resolve, reject) => {
+      const env = {
+        ...process.env,
+        PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+      };
+
+      const proc = spawn(
+        "python3",
+        [
+          "-m",
+          "yt_dlp",
+          "-x",
+          "--audio-format",
+          "mp3",
+          "--no-playlist",
+          "--max-filesize",
+          "100M",
+          "--no-simulate",
+          "--print",
+          "%(uploader)s",
+          "-o",
+          outTemplate,
+          targetUrl,
+        ],
+        { env }
+      );
+
+      let stdoutData = "";
+      let stderrData = "";
+      proc.stdout.on("data", (chunk) => {
+        stdoutData += chunk.toString();
+      });
+      proc.stderr.on("data", (chunk) => {
+        stderrData += chunk.toString();
+      });
+
+      proc.on("close", (code) => {
+        const mp3Path = path.join(os.tmpdir(), `${tempId}.mp3`);
+        const uploader = stdoutData.trim().split("\n")[0]?.trim();
+        const displayName = uploader && uploader !== "NA" ? `Video by @${uploader}` : `Instagram Reel`;
+
+        if (fs.existsSync(mp3Path)) {
+          try {
+            const buffer = fs.readFileSync(mp3Path);
+            fs.unlinkSync(mp3Path);
+            return resolve({
+              buffer,
+              fileName: `instagram_${shortcode}.mp3`,
+              displayName,
+              author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
+            });
+          } catch (readErr) {
+            return reject(readErr);
+          }
+        }
+
+        // Check if original file exists in tmpdir
+        const baseDir = os.tmpdir();
+        try {
+          const files = fs.readdirSync(baseDir).filter((f) => f.startsWith(tempId));
+          if (files.length > 0) {
+            const found = path.join(baseDir, files[0]);
+            const buffer = fs.readFileSync(found);
+            fs.unlinkSync(found);
+            return resolve({
+              buffer,
+              fileName: `instagram_${shortcode}.mp3`,
+              displayName,
+              author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
+            });
+          }
+        } catch {}
+
+        reject(new Error(`yt-dlp Instagram extraction failed with code ${code}: ${stderrData}`));
+      });
+
+      proc.on("error", (err) => reject(err));
+    });
+
+    if (result && result.buffer.byteLength > 1000) {
+      return result;
+    }
+  } catch (ytErr) {
+    console.warn("[linkMediaService] yt-dlp Instagram extraction fallback, trying internal APIs:", ytErr);
+  }
+
+  // ── Strategy 2: Internal Instagram APIs Fallback ──
   const pk = shortcodeToPk(shortcode);
   const sessionId = process.env.INSTAGRAM_SESSION_ID;
 
@@ -424,5 +431,93 @@ export async function fetchYoutubeAudioBuffer(
     proc.on("error", (err) => {
       reject(err);
     });
+  });
+}
+
+/**
+ * Downloads audio from any social media or web video URL using yt-dlp
+ * (TikTok, Twitter/X, Facebook, Threads, Vimeo, etc.)
+ */
+export async function fetchGenericMediaAudioBuffer(
+  url: string
+): Promise<{ buffer: Buffer; fileName: string; displayName: string }> {
+  const tempId = `media_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
+
+  return new Promise((resolve, reject) => {
+    const env = {
+      ...process.env,
+      PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+    };
+
+    const proc = spawn(
+      "python3",
+      [
+        "-m",
+        "yt_dlp",
+        "-x",
+        "--audio-format",
+        "mp3",
+        "--no-playlist",
+        "--max-filesize",
+        "150M",
+        "--no-simulate",
+        "--print",
+        "%(title)s",
+        "-o",
+        outTemplate,
+        url,
+      ],
+      { env }
+    );
+
+    let stdoutData = "";
+    let stderrData = "";
+    proc.stdout.on("data", (chunk) => {
+      stdoutData += chunk.toString();
+    });
+    proc.stderr.on("data", (chunk) => {
+      stderrData += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      const mp3Path = path.join(os.tmpdir(), `${tempId}.mp3`);
+      const title = stdoutData.trim().split("\n")[0]?.trim();
+      const displayName = title && title !== "NA" ? title : "Online Media";
+
+      if (fs.existsSync(mp3Path)) {
+        try {
+          const buffer = fs.readFileSync(mp3Path);
+          fs.unlinkSync(mp3Path);
+          return resolve({
+            buffer,
+            fileName: `media_${tempId}.mp3`,
+            displayName,
+          });
+        } catch (readErr) {
+          return reject(readErr);
+        }
+      }
+
+      // Check if original file exists in tmpdir
+      const baseDir = os.tmpdir();
+      try {
+        const files = fs.readdirSync(baseDir).filter((f) => f.startsWith(tempId));
+        if (files.length > 0) {
+          const found = path.join(baseDir, files[0]);
+          const buffer = fs.readFileSync(found);
+          fs.unlinkSync(found);
+          return resolve({
+            buffer,
+            fileName: `media_${tempId}.mp3`,
+            displayName,
+          });
+        }
+      } catch {}
+
+      reject(new Error(`Could not extract media: ${stderrData || `Code ${code}`}`));
+    });
+
+    proc.on("error", (err) => reject(err));
   });
 }

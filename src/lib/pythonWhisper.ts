@@ -76,11 +76,19 @@ export async function transcribeWithPythonWhisper(
   const ext = path.extname(fileName) || ".mp3";
   const tempId = `whisper_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tempFilePath = path.join(os.tmpdir(), `${tempId}${ext}`);
+  const tempJsonPath = path.join(os.tmpdir(), `${tempId}_out.json`);
   fs.writeFileSync(tempFilePath, buffer);
 
   const scriptPath = path.join(process.cwd(), "scripts", "transcribe_whisper.py");
 
-  const args = [scriptPath, tempFilePath, "--model", model];
+  const args = [
+    scriptPath,
+    tempFilePath,
+    "--model",
+    model,
+    "--output",
+    tempJsonPath,
+  ];
   if (language && language !== "auto") {
     args.push("--language", language);
   }
@@ -112,6 +120,9 @@ export async function transcribeWithPythonWhisper(
       } catch {}
 
       if (code !== 0) {
+        try {
+          if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
+        } catch {}
         let errMsg = "OpenAI Whisper transcription failed.";
         try {
           const errObj = JSON.parse(stderrData);
@@ -123,14 +134,29 @@ export async function transcribeWithPythonWhisper(
       }
 
       try {
-        // Robust JSON extraction in case any prefix logs were written
-        const jsonStart = stdoutData.indexOf("{");
-        const jsonEnd = stdoutData.lastIndexOf("}");
-        if (jsonStart === -1 || jsonEnd === -1) {
-          throw new Error("No JSON delimiter found");
+        // Prefer reading output directly from generated temp JSON file
+        // (avoids any tqdm, C-level stdout or warning pollution)
+        let parsed: {
+          text?: string;
+          segments?: Segment[];
+          language?: string;
+          model?: string;
+        };
+
+        if (fs.existsSync(tempJsonPath)) {
+          const jsonFileContent = fs.readFileSync(tempJsonPath, "utf-8");
+          fs.unlinkSync(tempJsonPath);
+          parsed = JSON.parse(jsonFileContent);
+        } else {
+          // Fallback: Robust JSON extraction from stdout
+          const jsonStart = stdoutData.indexOf("{");
+          const jsonEnd = stdoutData.lastIndexOf("}");
+          if (jsonStart === -1 || jsonEnd === -1) {
+            throw new Error("No JSON delimiter found in stdout");
+          }
+          const jsonSubstring = stdoutData.substring(jsonStart, jsonEnd + 1);
+          parsed = JSON.parse(jsonSubstring);
         }
-        const jsonSubstring = stdoutData.substring(jsonStart, jsonEnd + 1);
-        const parsed = JSON.parse(jsonSubstring);
 
         resolve({
           text: parsed.text || "",
@@ -139,7 +165,10 @@ export async function transcribeWithPythonWhisper(
           model: parsed.model || model,
           engine: "openai-whisper",
         });
-      } catch {
+      } catch (parseErr) {
+        try {
+          if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
+        } catch {}
         reject(
           new Error(
             `Failed to parse Whisper JSON output: ${stdoutData.slice(0, 200)}`
@@ -151,6 +180,7 @@ export async function transcribeWithPythonWhisper(
     proc.on("error", (err) => {
       try {
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (fs.existsSync(tempJsonPath)) fs.unlinkSync(tempJsonPath);
       } catch {}
       reject(err);
     });

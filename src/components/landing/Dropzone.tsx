@@ -5,7 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import { getDailyUsageCount, incrementDailyUsage, DAILY_LIMIT } from "@/lib/usageTracker";
 import { useAuth } from "@/lib/useAuth";
-import { parseMediaLink } from "@/lib/linkMediaService";
+import { parseMediaLink } from "@/lib/urlUtils";
 import { transcribeFileLocally } from "@/lib/browserTranscribe";
 import { extractUrls } from "@/lib/urlUtils";
 import { toCombinedTxt, toCombinedSrt, Segment } from "@/lib/export";

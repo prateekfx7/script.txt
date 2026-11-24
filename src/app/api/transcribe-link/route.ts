@@ -11,6 +11,7 @@ import {
   fetchInstagramVideoBuffer,
   downloadDirectMedia,
   fetchYoutubeAudioBuffer,
+  fetchGenericMediaAudioBuffer,
 } from "@/lib/linkMediaService";
 
 export async function POST(req: NextRequest) {
@@ -18,6 +19,8 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromRequest(req);
     const body = await req.json().catch(() => ({}));
     const { url, language } = body;
+
+    console.log(`[transcribe-link] Incoming URL: "${url}", language: "${language}"`);
 
     if (!url || typeof url !== "string" || !url.trim()) {
       return NextResponse.json({ error: "Please enter a valid URL." }, { status: 400 });
@@ -108,26 +111,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 2. INSTAGRAM REELS (AUTOMATED DIRECT EXTRACTION & GROQ WHISPER) ──
+    // ── 2. INSTAGRAM REELS (AUTOMATED DIRECT EXTRACTION & GROQ/LOCAL WHISPER) ──
     if (info.platform === "instagram" && info.id) {
       try {
-        const { buffer, fileName, displayName } = await fetchInstagramVideoBuffer(info.id);
+        const { buffer, fileName, displayName } = await fetchInstagramVideoBuffer(info.id, info.cleanUrl);
         const canTranscribe = await isServerTranscribeAvailable();
 
         if (!canTranscribe) {
           const safeId = info.id.replace(/[^a-zA-Z0-9_-]/g, "");
-          const tempFile = path.join("/tmp", `insta_${safeId}.mp4`);
+          const ext = fileName.endsWith(".mp3") ? "mp3" : "mp4";
+          const tempFile = path.join("/tmp", `insta_${safeId}.${ext}`);
           fs.writeFileSync(tempFile, buffer);
 
           return NextResponse.json({
             requiresClientTranscribe: true,
             streamUrl: `/api/get-insta-stream?tempId=insta_${safeId}`,
-            fileName: displayName || `instagram_${info.id}.mp4`,
+            fileName: displayName || `instagram_${info.id}.${ext}`,
           });
         }
 
         try {
-          const result = await transcribeBuffer(buffer, fileName, "video/mp4", language);
+          const mimeType = fileName.endsWith(".mp3") ? "audio/mpeg" : "video/mp4";
+          const result = await transcribeBuffer(buffer, fileName, mimeType, language);
 
           const job = await prisma.job.create({
             data: {
@@ -137,7 +142,7 @@ export async function POST(req: NextRequest) {
               status: "done",
               userId,
               language: language && language !== "auto" ? language : null,
-              engine: "openai",
+              engine: process.env.WHISPER_ENGINE || "openai-whisper",
             },
           });
 
@@ -156,17 +161,9 @@ export async function POST(req: NextRequest) {
             text: result.text,
             segments: result.segments,
           });
-        } catch (cloudErr) {
-          console.warn("Cloud transcription failed for Instagram reel, streaming to client:", cloudErr);
-          const safeId = info.id.replace(/[^a-zA-Z0-9_-]/g, "");
-          const tempFile = path.join("/tmp", `insta_${safeId}.mp4`);
-          fs.writeFileSync(tempFile, buffer);
-
-          return NextResponse.json({
-            requiresClientTranscribe: true,
-            streamUrl: `/api/get-insta-stream?tempId=insta_${safeId}`,
-            fileName: displayName || `instagram_${info.id}.mp4`,
-          });
+        } catch (whisperErr) {
+          console.warn("Instagram Whisper transcription error:", whisperErr);
+          throw whisperErr;
         }
       } catch (igErr) {
         console.warn("Instagram extraction error:", igErr);
@@ -178,7 +175,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 3. DIRECT AUDIO/VIDEO, GOOGLE DRIVE, DROPBOX ──
+    // ── 3. DIRECT AUDIO/VIDEO, GOOGLE DRIVE, DROPBOX, & GENERIC MEDIA ──
     if (info.directDownloadUrl) {
       const canTranscribe = await isServerTranscribeAvailable();
       if (!canTranscribe) {
@@ -201,7 +198,7 @@ export async function POST(req: NextRequest) {
             status: "done",
             userId,
             language: language && language !== "auto" ? language : null,
-            engine: "openai",
+            engine: process.env.WHISPER_ENGINE || "openai-whisper",
           },
         });
 
@@ -221,12 +218,45 @@ export async function POST(req: NextRequest) {
           segments: result.segments,
         });
       } catch (mediaErr) {
-        console.warn("Direct media download failed, falling back to client proxy:", mediaErr);
-        return NextResponse.json({
-          requiresClientTranscribe: true,
-          streamUrl: `/api/proxy-download?url=${encodeURIComponent(info.directDownloadUrl)}`,
-          fileName: info.displayName || "Online Media",
-        });
+        console.warn("Direct media download failed, attempting yt-dlp extractor fallback:", mediaErr);
+        try {
+          const { buffer, fileName, displayName } = await fetchGenericMediaAudioBuffer(info.cleanUrl);
+          const result = await transcribeBuffer(buffer, fileName, "audio/mpeg", language);
+
+          const job = await prisma.job.create({
+            data: {
+              fileName: displayName || info.displayName || "Online Media",
+              fileUrl: info.cleanUrl,
+              sourceType: "link",
+              status: "done",
+              userId,
+              language: language && language !== "auto" ? language : null,
+              engine: process.env.WHISPER_ENGINE || "openai-whisper",
+            },
+          });
+
+          await prisma.transcript.create({
+            data: {
+              jobId: job.id,
+              text: result.text,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              segments: (result.segments || []) as any,
+            },
+          });
+
+          return NextResponse.json({
+            jobId: job.id,
+            fileName: displayName || info.displayName || "Online Media",
+            text: result.text,
+            segments: result.segments,
+          });
+        } catch {
+          return NextResponse.json({
+            requiresClientTranscribe: true,
+            streamUrl: `/api/proxy-download?url=${encodeURIComponent(info.directDownloadUrl)}`,
+            fileName: info.displayName || "Online Media",
+          });
+        }
       }
     }
 
