@@ -10,10 +10,13 @@ import OpenAI from "openai";
 export function getTranscribeConfig() {
   const isGroq = !!process.env.GROQ_API_KEY || (process.env.TRANSCRIBE_API_BASE_URL ?? "").includes("groq.com");
   
-  const apiKey =
-    process.env.GROQ_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    "dummy-key";
+  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "No Groq or OpenAI API key configured. Please set GROQ_API_KEY in your .env.local file or use on-device local transcription."
+    );
+  }
 
   const baseURL =
     process.env.TRANSCRIBE_API_BASE_URL ||

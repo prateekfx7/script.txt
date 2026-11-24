@@ -4,7 +4,7 @@
  */
 
 const STORAGE_KEY = "scribe_daily_usage_v1";
-export const DAILY_LIMIT = 7;
+export const DAILY_LIMIT = 1000; // Unlimited for local deployment & active Groq API key
 
 interface UsageData {
   date: string; // YYYY-MM-DD

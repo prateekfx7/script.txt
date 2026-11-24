@@ -8,13 +8,8 @@ export async function GET(
   try {
     const job = await prisma.job.findUnique({
       where: { id: params.id },
-      select: {
-        id: true,
-        fileName: true,
-        status: true,
-        errorMsg: true,
-        createdAt: true,
-        sourceType: true,
+      include: {
+        transcript: true,
       },
     });
 

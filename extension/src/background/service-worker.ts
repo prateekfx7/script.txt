@@ -16,7 +16,10 @@ async function hasOffscreenDocument(): Promise<boolean> {
 
 async function ensureOffscreenDocument() {
   const exists = await hasOffscreenDocument();
-  if (exists) return;
+  if (exists) {
+    isOffscreenReady = true;
+    return;
+  }
 
   try {
     isOffscreenReady = false;
@@ -25,8 +28,11 @@ async function ensureOffscreenDocument() {
       reasons: [chrome.offscreen.Reason.WORKERS, chrome.offscreen.Reason.AUDIO_PLAYBACK],
       justification: "On-device WebAssembly audio transcription",
     });
+    isOffscreenReady = true;
   } catch (err: unknown) {
-    if (!(err instanceof Error && err.message.includes("Only a single offscreen document may be created"))) {
+    if (err instanceof Error && err.message.includes("Only a single offscreen document may be created")) {
+      isOffscreenReady = true;
+    } else {
       console.error("Failed to create offscreen document:", err);
     }
   }

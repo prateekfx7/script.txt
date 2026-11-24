@@ -4,14 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Server-side media download proxy that bypasses browser CORS restrictions.
  * Server-to-server fetches are exempt from browser CORS security rules.
  */
-export async function POST(req: NextRequest) {
+async function handleProxy(url: string) {
   try {
-    const { url } = await req.json();
-
-    if (!url || typeof url !== "string") {
-      return NextResponse.json({ error: "URL parameter is required" }, { status: 400 });
-    }
-
     let downloadUrl = url.trim();
 
     // Convert Google Drive view links to direct download links
@@ -47,6 +41,7 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": contentType,
         "Content-Length": arrayBuffer.byteLength.toString(),
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch (err: unknown) {
@@ -56,4 +51,21 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  const url = req.nextUrl.searchParams.get("url");
+  if (!url || typeof url !== "string") {
+    return NextResponse.json({ error: "url query parameter is required" }, { status: 400 });
+  }
+  return handleProxy(url);
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const { url } = body;
+  if (!url || typeof url !== "string") {
+    return NextResponse.json({ error: "URL parameter is required" }, { status: 400 });
+  }
+  return handleProxy(url);
 }

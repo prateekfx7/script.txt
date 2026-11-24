@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { prisma } from "@/lib/prisma";
 import { transcribeBuffer } from "@/lib/transcribe";
 import { getUserIdFromRequest } from "@/lib/getUserId";
@@ -54,13 +56,18 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        return NextResponse.json({ jobId: job.id });
+        return NextResponse.json({
+          jobId: job.id,
+          fileName: finalDisplayName,
+          text: fullText,
+          segments,
+        });
       }
 
       return NextResponse.json(
         {
           error:
-            "This YouTube video has no closed captions enabled. Drop the video or audio file directly into the upload box for instant Whisper AI transcription!",
+            "This YouTube video has no closed captions enabled on YouTube. Drop the video or audio file directly into the upload box for instant on-device Whisper AI transcription!",
         },
         { status: 422 }
       );
@@ -70,42 +77,83 @@ export async function POST(req: NextRequest) {
     if (info.platform === "instagram" && info.id) {
       try {
         const { buffer, fileName, displayName } = await fetchInstagramVideoBuffer(info.id);
-        const result = await transcribeBuffer(buffer, fileName, "video/mp4", language);
+        const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
 
-        const job = await prisma.job.create({
-          data: {
-            fileName: displayName || `Instagram Reel`,
-            fileUrl: info.cleanUrl,
-            sourceType: "link",
-            status: "done",
-            userId,
-            language: language && language !== "auto" ? language : null,
-            engine: "openai",
-          },
-        });
+        if (!hasKey) {
+          const safeId = info.id.replace(/[^a-zA-Z0-9_-]/g, "");
+          const tempFile = path.join("/tmp", `insta_${safeId}.mp4`);
+          fs.writeFileSync(tempFile, buffer);
 
-        await prisma.transcript.create({
-          data: {
+          return NextResponse.json({
+            requiresClientTranscribe: true,
+            streamUrl: `/api/get-insta-stream?tempId=insta_${safeId}`,
+            fileName: displayName || `instagram_${info.id}.mp4`,
+          });
+        }
+
+        try {
+          const result = await transcribeBuffer(buffer, fileName, "video/mp4", language);
+
+          const job = await prisma.job.create({
+            data: {
+              fileName: displayName || `Instagram Reel`,
+              fileUrl: info.cleanUrl,
+              sourceType: "link",
+              status: "done",
+              userId,
+              language: language && language !== "auto" ? language : null,
+              engine: "openai",
+            },
+          });
+
+          await prisma.transcript.create({
+            data: {
+              jobId: job.id,
+              text: result.text,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              segments: (result.segments || []) as any,
+            },
+          });
+
+          return NextResponse.json({
             jobId: job.id,
+            fileName: displayName || "Instagram Reel",
             text: result.text,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            segments: (result.segments || []) as any,
-          },
-        });
+            segments: result.segments,
+          });
+        } catch (cloudErr) {
+          console.warn("Cloud transcription failed for Instagram reel, streaming to client:", cloudErr);
+          const safeId = info.id.replace(/[^a-zA-Z0-9_-]/g, "");
+          const tempFile = path.join("/tmp", `insta_${safeId}.mp4`);
+          fs.writeFileSync(tempFile, buffer);
 
-        return NextResponse.json({ jobId: job.id });
+          return NextResponse.json({
+            requiresClientTranscribe: true,
+            streamUrl: `/api/get-insta-stream?tempId=insta_${safeId}`,
+            fileName: displayName || `instagram_${info.id}.mp4`,
+          });
+        }
       } catch (igErr) {
         console.warn("Instagram extraction error:", igErr);
         const msg =
           igErr instanceof Error
             ? igErr.message
-            : "Could not transcribe Instagram Reel. Please ensure the post is public.";
+            : "Could not transcribe Instagram Reel. Please ensure the post is public or drop the file into upload box.";
         return NextResponse.json({ error: msg }, { status: 422 });
       }
     }
 
     // ── 3. DIRECT AUDIO/VIDEO, GOOGLE DRIVE, DROPBOX ──
     if (info.directDownloadUrl) {
+      const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
+      if (!hasKey) {
+        return NextResponse.json({
+          requiresClientTranscribe: true,
+          streamUrl: `/api/proxy-download?url=${encodeURIComponent(info.directDownloadUrl)}`,
+          fileName: info.displayName || "Online Media",
+        });
+      }
+
       try {
         const { buffer, mimeType, fileName } = await downloadDirectMedia(info.directDownloadUrl);
         const result = await transcribeBuffer(buffer, fileName, mimeType, language);
@@ -131,11 +179,19 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        return NextResponse.json({ jobId: job.id });
+        return NextResponse.json({
+          jobId: job.id,
+          fileName: info.displayName || "Online Media",
+          text: result.text,
+          segments: result.segments,
+        });
       } catch (mediaErr) {
-        console.warn("Direct media download failed:", mediaErr);
-        const msg = mediaErr instanceof Error ? mediaErr.message : "Could not download file from link.";
-        return NextResponse.json({ error: msg }, { status: 422 });
+        console.warn("Direct media download failed, falling back to client proxy:", mediaErr);
+        return NextResponse.json({
+          requiresClientTranscribe: true,
+          streamUrl: `/api/proxy-download?url=${encodeURIComponent(info.directDownloadUrl)}`,
+          fileName: info.displayName || "Online Media",
+        });
       }
     }
 

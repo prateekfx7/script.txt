@@ -16,6 +16,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
+    const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
+    if (!hasKey) {
+      return NextResponse.json(
+        {
+          error: "NO_CLOUD_KEY",
+          message: "No cloud Whisper API key configured. Switch to local on-device transcription.",
+        },
+        { status: 503 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const contentType = file.type || "video/mp4";

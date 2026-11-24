@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ jobId: job.id });
+    return NextResponse.json({ jobId: job.id, fileName, text, segments });
   } catch (err) {
     console.error("save-local error:", err);
     return NextResponse.json({ error: "Failed to save transcript" }, { status: 500 });

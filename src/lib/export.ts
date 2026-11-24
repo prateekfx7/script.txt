@@ -63,3 +63,30 @@ export function toVtt(segments: Segment[]): string {
     .join("\n");
   return header + body;
 }
+
+/** Formats multiple transcripts into one combined TXT file */
+export function toCombinedTxt(items: Array<{ title: string; text: string }>): string {
+  return items
+    .map(
+      (item, i) =>
+        `============================================================\n` +
+        `# ${i + 1}. ${item.title}\n` +
+        `============================================================\n\n` +
+        `${item.text}\n\n`
+    )
+    .join("\n");
+}
+
+/** Formats multiple transcripts into one combined SRT subtitle file */
+export function toCombinedSrt(items: Array<{ title: string; segments: Segment[] }>): string {
+  return items
+    .map(
+      (item, i) =>
+        `/* ==========================================================\n` +
+        `   [Track ${i + 1}] ${item.title}\n` +
+        `   ========================================================== */\n\n` +
+        toSrt(item.segments) +
+        `\n\n`
+    )
+    .join("\n");
+}
