@@ -10,6 +10,7 @@ import {
   fetchYoutubeAuthor,
   fetchInstagramVideoBuffer,
   downloadDirectMedia,
+  fetchYoutubeAudioBuffer,
 } from "@/lib/linkMediaService";
 
 export async function POST(req: NextRequest) {
@@ -64,13 +65,47 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return NextResponse.json(
-        {
-          error:
-            "This YouTube video has no closed captions enabled on YouTube. Drop the video or audio file directly into the upload box for instant on-device Whisper AI transcription!",
-        },
-        { status: 422 }
-      );
+      // Fallback: If YouTube has no native closed captions, extract audio & transcribe with Whisper!
+      try {
+        const { buffer, fileName } = await fetchYoutubeAudioBuffer(info.id);
+        const result = await transcribeBuffer(buffer, fileName, "audio/mpeg", language);
+        const finalDisplayName = authorName || `YouTube Video`;
+
+        const job = await prisma.job.create({
+          data: {
+            fileName: finalDisplayName,
+            fileUrl: info.cleanUrl,
+            sourceType: "link",
+            status: "done",
+            userId,
+            language: language && language !== "auto" ? language : null,
+            engine: "openai-whisper",
+          },
+        });
+
+        await prisma.transcript.create({
+          data: {
+            jobId: job.id,
+            text: result.text,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            segments: (result.segments || []) as any,
+          },
+        });
+
+        return NextResponse.json({
+          jobId: job.id,
+          fileName: finalDisplayName,
+          text: result.text,
+          segments: result.segments,
+        });
+      } catch (whisperErr: unknown) {
+        console.warn("YouTube Whisper transcription fallback failed:", whisperErr);
+        const msg =
+          whisperErr instanceof Error
+            ? whisperErr.message
+            : "Could not transcribe this YouTube video. Please ensure the video is public or drop the file directly into upload.";
+        return NextResponse.json({ error: msg }, { status: 422 });
+      }
     }
 
     // ── 2. INSTAGRAM REELS (AUTOMATED DIRECT EXTRACTION & GROQ WHISPER) ──

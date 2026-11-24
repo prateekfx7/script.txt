@@ -10,6 +10,10 @@
 import { YoutubeTranscript } from "youtube-transcript";
 import { getSubtitles } from "youtube-caption-extractor";
 import { fetchInstagramVideoBuffer as resolveInstagramVideo } from "./instagramResolver";
+import { spawn } from "child_process";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 export interface LinkPlatformInfo {
   platform: "youtube" | "instagram" | "gdrive" | "dropbox" | "direct_media" | "other";
@@ -338,4 +342,87 @@ export async function downloadDirectMedia(
     mimeType: contentType.includes("audio") || contentType.includes("video") ? contentType : "audio/mpeg",
     fileName,
   };
+}
+
+/**
+ * Downloads audio track directly from YouTube using yt-dlp
+ * for videos without closed captions so they can be transcribed with Whisper.
+ */
+export async function fetchYoutubeAudioBuffer(
+  youtubeId: string
+): Promise<{ buffer: Buffer; fileName: string }> {
+  const url = `https://www.youtube.com/watch?v=${youtubeId}`;
+  const tempId = `yt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
+
+  return new Promise((resolve, reject) => {
+    const env = {
+      ...process.env,
+      PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+    };
+
+    const proc = spawn(
+      "python3",
+      [
+        "-m",
+        "yt_dlp",
+        "-x",
+        "--audio-format",
+        "mp3",
+        "--no-playlist",
+        "--max-filesize",
+        "150M",
+        "-o",
+        outTemplate,
+        url,
+      ],
+      { env }
+    );
+
+    let stderrData = "";
+    proc.stderr.on("data", (chunk) => {
+      stderrData += chunk.toString();
+    });
+
+    proc.on("close", (code) => {
+      const mp3Path = path.join(os.tmpdir(), `${tempId}.mp3`);
+      if (fs.existsSync(mp3Path)) {
+        try {
+          const buffer = fs.readFileSync(mp3Path);
+          fs.unlinkSync(mp3Path);
+          return resolve({
+            buffer,
+            fileName: `youtube_${youtubeId}.mp3`,
+          });
+        } catch (readErr) {
+          return reject(readErr);
+        }
+      }
+
+      // Check if original webm or m4a remains
+      const baseDir = os.tmpdir();
+      try {
+        const files = fs.readdirSync(baseDir).filter((f) => f.startsWith(tempId));
+        if (files.length > 0) {
+          const found = path.join(baseDir, files[0]);
+          const buffer = fs.readFileSync(found);
+          fs.unlinkSync(found);
+          return resolve({
+            buffer,
+            fileName: `youtube_${youtubeId}.mp3`,
+          });
+        }
+      } catch {}
+
+      reject(
+        new Error(
+          `Could not extract audio from this YouTube video. Please make sure the video is public and accessible.`
+        )
+      );
+    });
+
+    proc.on("error", (err) => {
+      reject(err);
+    });
+  });
 }
