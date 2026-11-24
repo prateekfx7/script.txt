@@ -1,47 +1,17 @@
 /**
  * lib/transcribe.ts
  *
- * Whisper API abstraction supporting Groq (ultra-fast Whisper) and OpenAI.
- * Reads GROQ_API_KEY, OPENAI_API_KEY, TRANSCRIBE_API_BASE_URL, and WHISPER_MODEL from env.
+ * Unified Whisper Speech Recognition Engine:
+ * 1. Local Open-Source Whisper (https://github.com/openai/whisper) via PyTorch + Python.
+ * 2. Groq Whisper (ultra-fast Whisper LPU cloud).
+ * 3. OpenAI Whisper Cloud API (whisper-1).
  */
 
 import OpenAI from "openai";
-
-export function getTranscribeConfig() {
-  const isGroq = !!process.env.GROQ_API_KEY || (process.env.TRANSCRIBE_API_BASE_URL ?? "").includes("groq.com");
-  
-  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error(
-      "No Groq or OpenAI API key configured. Please set GROQ_API_KEY in your .env.local file or use on-device local transcription."
-    );
-  }
-
-  const baseURL =
-    process.env.TRANSCRIBE_API_BASE_URL ||
-    (process.env.GROQ_API_KEY ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1");
-
-  // Groq default model: whisper-large-v3-turbo (or whisper-large-v3)
-  // OpenAI default model: whisper-1
-  const defaultModel = isGroq ? "whisper-large-v3-turbo" : "whisper-1";
-  const model = process.env.WHISPER_MODEL || defaultModel;
-
-  return {
-    provider: isGroq ? "groq" : "openai",
-    apiKey,
-    baseURL,
-    model,
-  };
-}
-
-function getOpenAIClient() {
-  const config = getTranscribeConfig();
-  return new OpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.baseURL,
-  });
-}
+import {
+  transcribeWithPythonWhisper,
+  checkPythonWhisperAvailable,
+} from "./pythonWhisper";
 
 export interface Segment {
   start: number;
@@ -54,8 +24,59 @@ export interface TranscriptionResult {
   segments: Segment[];
 }
 
+export function getTranscribeConfig() {
+  const engine = (process.env.WHISPER_ENGINE || "").toLowerCase();
+  const isGroq =
+    engine === "groq" ||
+    (!engine && !!process.env.GROQ_API_KEY) ||
+    (process.env.TRANSCRIBE_API_BASE_URL ?? "").includes("groq.com");
+
+  const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+
+  const baseURL =
+    process.env.TRANSCRIBE_API_BASE_URL ||
+    (isGroq ? "https://api.groq.com/openai/v1" : "https://api.openai.com/v1");
+
+  const defaultModel = isGroq ? "whisper-large-v3-turbo" : "whisper-1";
+  const model = process.env.WHISPER_MODEL || defaultModel;
+
+  return {
+    engine: engine || (apiKey ? (isGroq ? "groq" : "openai") : "openai-whisper"),
+    provider: isGroq ? "groq" : "openai",
+    apiKey,
+    baseURL,
+    model,
+  };
+}
+
+function getOpenAIClient() {
+  const config = getTranscribeConfig();
+  if (!config.apiKey) {
+    throw new Error("No API key configured for cloud Whisper.");
+  }
+  return new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseURL,
+  });
+}
+
 /**
- * Transcribe a file buffer using Groq or OpenAI Whisper API.
+ * Checks whether the server has any active transcription engine:
+ * Either local Python openai-whisper or cloud Whisper API keys.
+ */
+export async function isServerTranscribeAvailable(): Promise<boolean> {
+  const engine = (process.env.WHISPER_ENGINE || "").toLowerCase();
+  if (engine.includes("whisper") || engine === "local") {
+    return true;
+  }
+  if (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY) {
+    return true;
+  }
+  return await checkPythonWhisperAvailable();
+}
+
+/**
+ * Transcribe a file buffer using local openai-whisper or cloud Whisper API.
  */
 export async function transcribeBuffer(
   buffer: Buffer,
@@ -67,7 +88,36 @@ export async function transcribeBuffer(
     throw new Error("Invalid audio buffer: file is empty or corrupted.");
   }
 
-  // Ensure fileName has a recognized media extension
+  const engine = (process.env.WHISPER_ENGINE || "").toLowerCase();
+  const preferLocal =
+    engine === "openai-whisper" ||
+    engine === "local" ||
+    engine === "whisper";
+
+  // ── 1. If explicit openai-whisper is selected, run local Python Whisper directly ──
+  if (preferLocal) {
+    return await transcribeWithPythonWhisper(buffer, fileName, {
+      language,
+      model: process.env.LOCAL_WHISPER_MODEL || "base",
+    });
+  }
+
+  // ── 2. If no cloud keys exist, check if local openai-whisper is available ──
+  const hasCloudKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
+  if (!hasCloudKey) {
+    const isPythonAvailable = await checkPythonWhisperAvailable();
+    if (isPythonAvailable) {
+      return await transcribeWithPythonWhisper(buffer, fileName, {
+        language,
+        model: process.env.LOCAL_WHISPER_MODEL || "base",
+      });
+    }
+    throw new Error(
+      "No transcription engine available. Please install openai-whisper (pip install openai-whisper) or set GROQ_API_KEY in .env.local."
+    );
+  }
+
+  // ── 3. Transcribe via Cloud Whisper (Groq / OpenAI) ──
   let safeFileName = fileName;
   if (!/\.(mp3|mp4|m4a|wav|webm|ogg|aac|flac)$/i.test(safeFileName)) {
     safeFileName = `${safeFileName.replace(/\.[^/.]+$/, "")}.mp3`;
@@ -110,10 +160,29 @@ export async function transcribeBuffer(
       segments: segments.length > 0 ? segments : [{ start: 0, end: 0, text: raw.text ?? "" }],
     };
   } catch (err: unknown) {
-    const errObj = err as { status?: number; message?: string; code?: string; error?: { message?: string } };
+    // Resilient fallback to local Python openai-whisper if cloud request fails
+    try {
+      const isPythonAvailable = await checkPythonWhisperAvailable();
+      if (isPythonAvailable) {
+        console.warn(
+          "Cloud Whisper failed or hit rate limit. Falling back to local openai-whisper:",
+          err
+        );
+        return await transcribeWithPythonWhisper(buffer, fileName, {
+          language,
+          model: process.env.LOCAL_WHISPER_MODEL || "base",
+        });
+      }
+    } catch {}
+
+    const errObj = err as {
+      status?: number;
+      message?: string;
+      code?: string;
+      error?: { message?: string };
+    };
     const errMessage = (errObj.error?.message || errObj.message || "").toLowerCase();
 
-    // Detect 401 Unauthorized / Invalid API Key
     const isAuthError =
       errObj.status === 401 ||
       errMessage.includes("invalid api key") ||
@@ -123,11 +192,10 @@ export async function transcribeBuffer(
     if (isAuthError) {
       const providerName = config.provider === "groq" ? "Groq" : "OpenAI";
       throw new Error(
-        `Invalid ${providerName} API Key. If you are on Vercel/Production, make sure GROQ_API_KEY is updated in your Vercel Project Settings > Environment Variables, then redeploy.`
+        `Invalid ${providerName} API Key. Set WHISPER_ENGINE=openai-whisper in .env.local to use free local Whisper, or update your ${providerName} key.`
       );
     }
 
-    // Detect 429 Rate Limit Exceeded
     const isRateLimit =
       errObj.status === 429 ||
       errObj.code === "rate_limit_exceeded" ||
@@ -137,14 +205,7 @@ export async function transcribeBuffer(
     if (isRateLimit) {
       const providerName = config.provider === "groq" ? "Groq" : "OpenAI";
       throw new Error(
-        `${providerName} API rate limit or quota reached. Please check your ${providerName} account quota and API key.`
-      );
-    }
-
-    // Detect invalid media file error
-    if (errMessage.includes("could not process file") || errMessage.includes("valid media file")) {
-      throw new Error(
-        "Could not extract audio track from this media. Please ensure the link is a valid audio/video file or drop the file directly into the upload box."
+        `${providerName} API rate limit or quota reached. Set WHISPER_ENGINE=openai-whisper to transcribe locally with no limits.`
       );
     }
 

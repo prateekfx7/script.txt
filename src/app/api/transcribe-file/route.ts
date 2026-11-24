@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { transcribeBuffer } from "@/lib/transcribe";
+import { transcribeBuffer, isServerTranscribeAvailable } from "@/lib/transcribe";
 import { getUserIdFromRequest } from "@/lib/getUserId";
 
 export const maxDuration = 60; // Allow longer execution for audio transcription
@@ -16,12 +16,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
     }
 
-    const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
-    if (!hasKey) {
+    const canTranscribe = await isServerTranscribeAvailable();
+    if (!canTranscribe) {
       return NextResponse.json(
         {
           error: "NO_CLOUD_KEY",
-          message: "No cloud Whisper API key configured. Switch to local on-device transcription.",
+          message: "No transcription engine configured. Set WHISPER_ENGINE=openai-whisper or configure GROQ_API_KEY.",
         },
         { status: 503 }
       );

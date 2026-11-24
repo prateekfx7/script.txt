@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { transcribeBuffer } from "@/lib/transcribe";
+import { transcribeBuffer, isServerTranscribeAvailable } from "@/lib/transcribe";
 import { getUserIdFromRequest } from "@/lib/getUserId";
 import {
   parseMediaLink,
@@ -77,9 +77,9 @@ export async function POST(req: NextRequest) {
     if (info.platform === "instagram" && info.id) {
       try {
         const { buffer, fileName, displayName } = await fetchInstagramVideoBuffer(info.id);
-        const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
+        const canTranscribe = await isServerTranscribeAvailable();
 
-        if (!hasKey) {
+        if (!canTranscribe) {
           const safeId = info.id.replace(/[^a-zA-Z0-9_-]/g, "");
           const tempFile = path.join("/tmp", `insta_${safeId}.mp4`);
           fs.writeFileSync(tempFile, buffer);
@@ -145,8 +145,8 @@ export async function POST(req: NextRequest) {
 
     // ── 3. DIRECT AUDIO/VIDEO, GOOGLE DRIVE, DROPBOX ──
     if (info.directDownloadUrl) {
-      const hasKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
-      if (!hasKey) {
+      const canTranscribe = await isServerTranscribeAvailable();
+      if (!canTranscribe) {
         return NextResponse.json({
           requiresClientTranscribe: true,
           streamUrl: `/api/proxy-download?url=${encodeURIComponent(info.directDownloadUrl)}`,
