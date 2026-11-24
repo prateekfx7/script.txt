@@ -62,13 +62,9 @@ function getOpenAIClient() {
 
 /**
  * Checks whether the server has any active transcription engine:
- * Either local Python openai-whisper or cloud Whisper API keys.
+ * Either local Python openai-whisper (if python3 is installed) or cloud Whisper API keys.
  */
 export async function isServerTranscribeAvailable(): Promise<boolean> {
-  const engine = (process.env.WHISPER_ENGINE || "").toLowerCase();
-  if (engine.includes("whisper") || engine === "local") {
-    return true;
-  }
   if (process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY) {
     return true;
   }
@@ -88,22 +84,34 @@ export async function transcribeBuffer(
     throw new Error("Invalid audio buffer: file is empty or corrupted.");
   }
 
+  const hasCloudKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
   const engine = (process.env.WHISPER_ENGINE || "").toLowerCase();
   const preferLocal =
     engine === "openai-whisper" ||
     engine === "local" ||
     engine === "whisper";
 
-  // ── 1. If explicit openai-whisper is selected, run local Python Whisper directly ──
+  // ── 1. If local Python Whisper is requested, verify python3 is runnable first ──
   if (preferLocal) {
-    return await transcribeWithPythonWhisper(buffer, fileName, {
-      language,
-      model: process.env.LOCAL_WHISPER_MODEL || "base",
-    });
+    const isPythonAvailable = await checkPythonWhisperAvailable();
+    if (isPythonAvailable) {
+      try {
+        return await transcribeWithPythonWhisper(buffer, fileName, {
+          language,
+          model: process.env.LOCAL_WHISPER_MODEL || "base",
+        });
+      } catch (localErr) {
+        console.warn("Local Python Whisper error, attempting cloud fallback:", localErr);
+        if (!hasCloudKey) throw localErr;
+      }
+    } else if (!hasCloudKey) {
+      throw new Error(
+        "Local Python Whisper engine is not available on this server (python3 or openai-whisper not found). Set GROQ_API_KEY in your environment for cloud transcription, or use on-device client transcription."
+      );
+    }
   }
 
   // ── 2. If no cloud keys exist, check if local openai-whisper is available ──
-  const hasCloudKey = Boolean(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
   if (!hasCloudKey) {
     const isPythonAvailable = await checkPythonWhisperAvailable();
     if (isPythonAvailable) {
@@ -113,7 +121,7 @@ export async function transcribeBuffer(
       });
     }
     throw new Error(
-      "No transcription engine available. Please install openai-whisper (pip install openai-whisper) or set GROQ_API_KEY in .env.local."
+      "No transcription engine available on this server. Please install openai-whisper (pip install openai-whisper) or set GROQ_API_KEY in your environment."
     );
   }
 

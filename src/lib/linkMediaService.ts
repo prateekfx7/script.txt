@@ -44,6 +44,34 @@ export async function fetchYoutubeAuthor(youtubeId: string): Promise<string | nu
   return null;
 }
 
+let isYtDlpAvailableCache: boolean | null = null;
+
+/**
+ * Checks if python3 and yt-dlp are available on the host system
+ */
+export async function isYtDlpAvailable(): Promise<boolean> {
+  if (isYtDlpAvailableCache !== null) return isYtDlpAvailableCache;
+
+  return new Promise((resolve) => {
+    const env = {
+      ...process.env,
+      PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+    };
+
+    const proc = spawn("python3", ["-m", "yt_dlp", "--version"], { env });
+
+    proc.on("close", (code) => {
+      isYtDlpAvailableCache = code === 0;
+      resolve(isYtDlpAvailableCache);
+    });
+
+    proc.on("error", () => {
+      isYtDlpAvailableCache = false;
+      resolve(false);
+    });
+  });
+}
+
 /**
  * Directly extracts and downloads audio from an Instagram Reel / Post
  * Uses yt-dlp first (fast, reliable, handles modern Instagram CDN without cookies),
@@ -61,99 +89,102 @@ export async function fetchInstagramVideoBuffer(
   const targetUrl = rawUrl || `https://www.instagram.com/reel/${shortcode}/`;
 
   // ── Strategy 1: yt-dlp (Native, fastest, handles Instagram without cookies) ──
-  try {
-    const tempId = `ig_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
+  const canUseYtDlp = await isYtDlpAvailable();
+  if (canUseYtDlp) {
+    try {
+      const tempId = `ig_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
 
-    const result = await new Promise<{
-      buffer: Buffer;
-      fileName: string;
-      displayName: string;
-      author?: string;
-    }>((resolve, reject) => {
-      const env = {
-        ...process.env,
-        PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
-      };
+      const result = await new Promise<{
+        buffer: Buffer;
+        fileName: string;
+        displayName: string;
+        author?: string;
+      }>((resolve, reject) => {
+        const env = {
+          ...process.env,
+          PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ""}`,
+        };
 
-      const proc = spawn(
-        "python3",
-        [
-          "-m",
-          "yt_dlp",
-          "-x",
-          "--audio-format",
-          "mp3",
-          "--no-playlist",
-          "--max-filesize",
-          "100M",
-          "--no-simulate",
-          "--print",
-          "%(uploader)s",
-          "-o",
-          outTemplate,
-          targetUrl,
-        ],
-        { env }
-      );
+        const proc = spawn(
+          "python3",
+          [
+            "-m",
+            "yt_dlp",
+            "-x",
+            "--audio-format",
+            "mp3",
+            "--no-playlist",
+            "--max-filesize",
+            "100M",
+            "--no-simulate",
+            "--print",
+            "%(uploader)s",
+            "-o",
+            outTemplate,
+            targetUrl,
+          ],
+          { env }
+        );
 
-      let stdoutData = "";
-      let stderrData = "";
-      proc.stdout.on("data", (chunk) => {
-        stdoutData += chunk.toString();
-      });
-      proc.stderr.on("data", (chunk) => {
-        stderrData += chunk.toString();
-      });
+        let stdoutData = "";
+        let stderrData = "";
+        proc.stdout.on("data", (chunk) => {
+          stdoutData += chunk.toString();
+        });
+        proc.stderr.on("data", (chunk) => {
+          stderrData += chunk.toString();
+        });
 
-      proc.on("close", (code) => {
-        const mp3Path = path.join(os.tmpdir(), `${tempId}.mp3`);
-        const uploader = stdoutData.trim().split("\n")[0]?.trim();
-        const displayName = uploader && uploader !== "NA" ? `Video by @${uploader}` : `Instagram Reel`;
+        proc.on("close", (code) => {
+          const mp3Path = path.join(os.tmpdir(), `${tempId}.mp3`);
+          const uploader = stdoutData.trim().split("\n")[0]?.trim();
+          const displayName = uploader && uploader !== "NA" ? `Video by @${uploader}` : `Instagram Reel`;
 
-        if (fs.existsSync(mp3Path)) {
+          if (fs.existsSync(mp3Path)) {
+            try {
+              const buffer = fs.readFileSync(mp3Path);
+              fs.unlinkSync(mp3Path);
+              return resolve({
+                buffer,
+                fileName: `instagram_${shortcode}.mp3`,
+                displayName,
+                author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
+              });
+            } catch (readErr) {
+              return reject(readErr);
+            }
+          }
+
+          // Check if original file exists in tmpdir
+          const baseDir = os.tmpdir();
           try {
-            const buffer = fs.readFileSync(mp3Path);
-            fs.unlinkSync(mp3Path);
-            return resolve({
-              buffer,
-              fileName: `instagram_${shortcode}.mp3`,
-              displayName,
-              author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
-            });
-          } catch (readErr) {
-            return reject(readErr);
-          }
-        }
+            const files = fs.readdirSync(baseDir).filter((f) => f.startsWith(tempId));
+            if (files.length > 0) {
+              const found = path.join(baseDir, files[0]);
+              const buffer = fs.readFileSync(found);
+              fs.unlinkSync(found);
+              return resolve({
+                buffer,
+                fileName: `instagram_${shortcode}.mp3`,
+                displayName,
+                author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
+              });
+            }
+          } catch {}
 
-        // Check if original file exists in tmpdir
-        const baseDir = os.tmpdir();
-        try {
-          const files = fs.readdirSync(baseDir).filter((f) => f.startsWith(tempId));
-          if (files.length > 0) {
-            const found = path.join(baseDir, files[0]);
-            const buffer = fs.readFileSync(found);
-            fs.unlinkSync(found);
-            return resolve({
-              buffer,
-              fileName: `instagram_${shortcode}.mp3`,
-              displayName,
-              author: uploader && uploader !== "NA" ? `@${uploader}` : undefined,
-            });
-          }
-        } catch {}
+          reject(new Error(`yt-dlp Instagram extraction failed with code ${code}: ${stderrData}`));
+        });
 
-        reject(new Error(`yt-dlp Instagram extraction failed with code ${code}: ${stderrData}`));
+        proc.on("error", (err) => reject(err));
       });
 
-      proc.on("error", (err) => reject(err));
-    });
-
-    if (result && result.buffer.byteLength > 1000) {
-      return result;
+      if (result && result.buffer.byteLength > 1000) {
+        return result;
+      }
+    } catch (ytErr) {
+      console.warn("[linkMediaService] yt-dlp Instagram extraction fallback, trying internal APIs:", ytErr);
     }
-  } catch (ytErr) {
-    console.warn("[linkMediaService] yt-dlp Instagram extraction fallback, trying internal APIs:", ytErr);
   }
 
   // ── Strategy 2: Internal Instagram APIs Fallback ──
@@ -358,6 +389,13 @@ export async function downloadDirectMedia(
 export async function fetchYoutubeAudioBuffer(
   youtubeId: string
 ): Promise<{ buffer: Buffer; fileName: string }> {
+  const canUseYtDlp = await isYtDlpAvailable();
+  if (!canUseYtDlp) {
+    throw new Error(
+      "This YouTube video has no closed captions enabled on YouTube. Drop the audio or video file directly into the upload area to transcribe."
+    );
+  }
+
   const url = `https://www.youtube.com/watch?v=${youtubeId}`;
   const tempId = `yt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
@@ -441,6 +479,13 @@ export async function fetchYoutubeAudioBuffer(
 export async function fetchGenericMediaAudioBuffer(
   url: string
 ): Promise<{ buffer: Buffer; fileName: string; displayName: string }> {
+  const canUseYtDlp = await isYtDlpAvailable();
+  if (!canUseYtDlp) {
+    throw new Error(
+      "Direct media stream extraction is not available on this server. Please download and drop the file into the upload area."
+    );
+  }
+
   const tempId = `media_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const outTemplate = path.join(os.tmpdir(), `${tempId}.%(ext)s`);
 

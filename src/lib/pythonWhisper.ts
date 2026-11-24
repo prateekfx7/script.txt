@@ -69,6 +69,13 @@ export async function transcribeWithPythonWhisper(
     throw new Error("Invalid audio buffer: file is empty or corrupted.");
   }
 
+  const isAvailable = await checkPythonWhisperAvailable();
+  if (!isAvailable) {
+    throw new Error(
+      "Local Python Whisper engine is not available on this host (python3 or openai-whisper not found)."
+    );
+  }
+
   const model = options?.model || process.env.LOCAL_WHISPER_MODEL || "base";
   const language = options?.language;
 
